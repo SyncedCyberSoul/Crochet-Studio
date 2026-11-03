@@ -1,6 +1,6 @@
 # Crochet Studio 🧶
 
-Jillian's home for crochet projects: what's on the hook, what's next, and photos of everything.
+All in one home for crochet projects: what's on the hook, what's next, and photos of everything.
 
 ## Opening it
 
