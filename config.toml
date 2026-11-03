@@ -1,0 +1,15 @@
+# Crochet Studio settings. Relative paths are resolved from this file's folder.
+
+[server]
+# 127.0.0.1 = this laptop only. Phase 5 switches this to "0.0.0.0" for the Mac/phone.
+host = "127.0.0.1"
+port = 8000
+
+[paths]
+db = "data/crochet.db"
+media = "data/media"
+
+[photos]
+# Longest edge of the stored photo, and the square thumbnail size, in pixels.
+full_px = 2400
+thumb_px = 480

@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+{% from "_macros.html" import status_pill %}
+{% block title %}{{ project.name }} · Crochet Studio{% endblock %}
+{% block content %}
+{% set cover = project.cover %}
+<div x-data="{ shown: null }" @keydown.escape.window="shown = null">
+
+  <a href="/" class="back">← All projects</a>
+
+  {% if rejected %}
+  <p class="alert">{{ rejected }} file{{ 's' if rejected > 1 }} couldn't be read as a photo and {{ 'were' if rejected > 1 else 'was' }} skipped.</p>
+  {% endif %}
+
+  <section class="hero">
+    {% if cover %}
+      <button type="button" class="hero-img" @click="shown = {{ {'src': '/media/' ~ cover.file, 'caption': cover.caption} | tojson | forceescape }}">
+        <img src="/media/{{ cover.file }}" alt="{{ cover.caption or project.name }}">
+      </button>
+    {% else %}
+      <div class="hero-img placeholder status-{{ project.status.value }}"><img src="/static/yarn.svg" alt=""></div>
+    {% endif %}
+    <div class="hero-info">
+      {{ status_pill(project.status) }}
+      <h1>{{ project.name }}</h1>
+      {% if project.recipient %}<p class="muted lead">for {{ project.recipient }}</p>{% endif %}
+      {% if project.tags %}
+      <p class="chips">{% for t in project.tags %}<a class="chip" href="/?tag={{ t.name | urlencode }}">#{{ t.name }}</a>{% endfor %}</p>
+      {% endif %}
+      <div class="actions">
+        <a class="btn" href="/projects/{{ project.id }}/edit">Edit</a>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Status</h2>
+    <form method="post" action="/projects/{{ project.id }}/status" class="status-picker">
+      {% for s in STATUSES %}
+      <button name="status" value="{{ s.value }}" class="status-btn status-{{ s.value }} {% if s == project.status %}current{% endif %}"
+              {% if s == project.status %}aria-pressed="true"{% endif %}>{{ STATUS_LABELS[s] }}</button>
+      {% endfor %}
+    </form>
+  </section>
+
+  <section class="panel">
+    <h2>Details</h2>
+    <dl class="facts">
+      <div><dt>Hook</dt><dd>{{ project.hook_size or "—" }}</dd></div>
+      <div><dt>Gauge</dt><dd>{{ project.gauge or "—" }}</dd></div>
+      <div><dt>Finished size</dt><dd>{{ project.finished_size or "—" }}</dd></div>
+      <div><dt>Started</dt><dd>{{ project.start_date | nice_date or "—" }}</dd></div>
+      <div><dt>Finished</dt><dd>{{ project.finish_date | nice_date or "—" }}</dd></div>
+    </dl>
+    {% if project.notes %}
+      <h3>Notes</h3>
+      <div class="notes">{{ project.notes }}</div>
+    {% endif %}
+  </section>
+
+  <section class="panel" id="photos">
+    <div class="panel-head">
+      <h2>Photos <span class="count">{{ project.photos | length }}</span></h2>
+      <form method="post" action="/projects/{{ project.id }}/photos" enctype="multipart/form-data">
+        <label class="btn btn-primary">
+          + Add photos
+          <input type="file" name="photos" accept="image/*" multiple hidden onchange="this.form.submit()">
+        </label>
+      </form>
+    </div>
+    {% if project.photos %}
+    <div class="gallery">
+      {% for ph in project.photos %}
+      <figure class="photo {% if ph.is_cover %}is-cover{% endif %}">
+        <button type="button" class="photo-open" @click="shown = {{ {'src': '/media/' ~ ph.file, 'caption': ph.caption} | tojson | forceescape }}">
+          <img src="/media/{{ ph.thumb }}" alt="{{ ph.caption }}" loading="lazy">
+          {% if ph.is_cover %}<span class="badge">Cover</span>{% endif %}
+        </button>
+        <figcaption x-data="{ editing: false }">
+          <template x-if="!editing">
+            <button type="button" class="caption-text" @click="editing = true">
+              {{ ph.caption or "Add a caption" }}
+              {% if ph.taken_on %}<small>{{ ph.taken_on | nice_date }}</small>{% endif %}
+            </button>
+          </template>
+          <template x-if="editing">
+            <form method="post" action="/photos/{{ ph.id }}/caption" class="caption-form">
+              <input name="caption" value="{{ ph.caption }}" placeholder="Caption" x-init="$el.focus()">
+              <button class="btn btn-sm btn-primary">Save</button>
+            </form>
+          </template>
+          <div class="photo-actions">
+            {% if not ph.is_cover %}
+            <form method="post" action="/photos/{{ ph.id }}/cover"><button class="btn btn-sm">Make cover</button></form>
+            {% endif %}
+            <form method="post" action="/photos/{{ ph.id }}/delete" onsubmit="return confirm('Delete this photo?')">
+              <button class="btn btn-sm btn-ghost-danger">Delete</button>
+            </form>
+          </div>
+        </figcaption>
+      </figure>
+      {% endfor %}
+    </div>
+    {% else %}
+      <p class="muted">No photos yet. Snap one of your progress!</p>
+    {% endif %}
+  </section>
+
+  <section class="danger-zone">
+    <form method="post" action="/projects/{{ project.id }}/delete"
+          onsubmit="return confirm('Delete “{{ project.name | replace("'", "") }}” and all its photos? This can’t be undone.')">
+      <button class="btn btn-ghost-danger">Delete project</button>
+    </form>
+  </section>
+
+  <div class="lightbox" x-show="shown" x-transition.opacity @click="shown = null" x-cloak>
+    <img :src="shown && shown.src" alt="">
+    <p x-text="shown && shown.caption"></p>
+  </div>
+</div>
+{% endblock %}

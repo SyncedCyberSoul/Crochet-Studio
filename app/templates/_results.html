@@ -1,0 +1,41 @@
+{% from "_macros.html" import project_card %}
+{% if tag_counts %}
+<div class="chips" aria-label="Filter by tag">
+  {% for name, count in tag_counts %}
+    {% set active = (name == tag) %}
+    <a class="chip {% if active %}active{% endif %}"
+       href="/?{% if q %}q={{ q | urlencode }}&{% endif %}{% if not active %}tag={{ name | urlencode }}{% endif %}">
+      #{{ name }} <small>{{ count }}</small>
+    </a>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if total == 0 %}
+  <div class="empty">
+    <img src="/static/yarn.svg" alt="" width="72" height="72">
+    <h2>No projects yet</h2>
+    <p>Start with something on the hook, or an idea for later.</p>
+    <a href="/projects/new?status=in_progress" class="btn btn-primary btn-lg">+ Add your first project</a>
+  </div>
+{% elif found == 0 %}
+  <div class="empty">
+    <h2>Nothing matches</h2>
+    <p>Try another word{% if tag %}, or <a href="/{% if q %}?q={{ q | urlencode }}{% endif %}">clear the #{{ tag }} filter</a>{% endif %}.</p>
+  </div>
+{% else %}
+  {% for status in DASHBOARD_ORDER %}
+    {% set items = groups[status] %}
+    {% if items %}
+    <details class="group" {% if status.value != 'frogged' %}open{% endif %}>
+      <summary>
+        <span class="dot status-{{ status.value }}"></span>
+        {{ STATUS_LABELS[status] }} <span class="count">{{ items | length }}</span>
+      </summary>
+      <div class="grid">
+        {% for p in items %}{{ project_card(p) }}{% endfor %}
+      </div>
+    </details>
+    {% endif %}
+  {% endfor %}
+{% endif %}

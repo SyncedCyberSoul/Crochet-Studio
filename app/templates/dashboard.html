@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block content %}
+<form class="search" action="/" method="get" onsubmit="return false">
+  <input type="search" name="q" value="{{ q }}" placeholder="Search projects, people, tags, notes…"
+         autocomplete="off" aria-label="Search projects"
+         hx-get="/" hx-trigger="input changed delay:250ms, search" hx-target="#results"
+         hx-include="closest form" hx-push-url="true">
+  {% if tag %}<input type="hidden" name="tag" value="{{ tag }}">{% endif %}
+</form>
+<div id="results">
+  {% include "_results.html" %}
+</div>
+{% endblock %}

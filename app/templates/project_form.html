@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% set editing = project.id is not none %}
+{% block title %}{{ "Edit " ~ project.name if editing else "New project" }} · Crochet Studio{% endblock %}
+{% block topbar_action %}{% endblock %}
+{% block content %}
+<a href="{{ '/projects/%d' % project.id if editing else '/' }}" class="back">← {{ "Back to project" if editing else "All projects" }}</a>
+<h1>{{ "Edit project" if editing else "New project" }}</h1>
+
+<form method="post" action="{{ '/projects/%d' % project.id if editing else '/projects' }}"
+      enctype="multipart/form-data" class="form">
+
+  <label class="field">
+    <span>Name</span>
+    <input name="name" value="{{ project.name }}" required placeholder="e.g. Sunflower granny blanket" {% if not editing %}autofocus{% endif %}>
+  </label>
+
+  <fieldset class="field">
+    <legend>Status</legend>
+    <div class="status-picker">
+      {% for s in STATUSES %}
+      <label class="status-btn status-{{ s.value }}">
+        <input type="radio" name="status" value="{{ s.value }}" {% if s == project.status %}checked{% endif %}>
+        {{ STATUS_LABELS[s] }}
+      </label>
+      {% endfor %}
+    </div>
+  </fieldset>
+
+  <label class="field">
+    <span>Who it's for</span>
+    <input name="recipient" value="{{ project.recipient }}" placeholder="Me, Mom, baby Theo…">
+  </label>
+
+  <div class="row">
+    <label class="field">
+      <span>Started</span>
+      <input type="date" name="start_date" value="{{ project.start_date or '' }}">
+    </label>
+    <label class="field">
+      <span>Finished</span>
+      <input type="date" name="finish_date" value="{{ project.finish_date or '' }}">
+    </label>
+  </div>
+
+  <div class="row">
+    <label class="field">
+      <span>Hook size</span>
+      <input name="hook_size" value="{{ project.hook_size }}" list="hook-sizes" placeholder="5.0 mm (H-8)">
+      <datalist id="hook-sizes">{% for h in HOOK_SIZES %}<option value="{{ h }}">{% endfor %}</datalist>
+    </label>
+    <label class="field">
+      <span>Gauge</span>
+      <input name="gauge" value="{{ project.gauge }}" placeholder="14 sc × 16 rows = 4 in">
+    </label>
+  </div>
+
+  <label class="field">
+    <span>Finished size</span>
+    <input name="finished_size" value="{{ project.finished_size }}" placeholder="50 × 60 in">
+  </label>
+
+  <div class="field" x-data='tagInput({{ tag_names | tojson }}, {{ all_tags | tojson }})'>
+    <span class="label">Tags</span>
+    <div class="tag-box" @click="$refs.draft.focus()">
+      <template x-for="t in tags" :key="t">
+        <span class="chip active"><span x-text="'#' + t"></span>
+          <button type="button" class="chip-x" @click.stop="remove(t)" :aria-label="'Remove ' + t">×</button>
+        </span>
+      </template>
+      <input x-ref="draft" x-model="draft" @keydown="onKey($event)"
+             placeholder="Type a tag, press Enter" aria-label="Add tag">
+    </div>
+    <input type="hidden" name="tags" :value="[...tags, draft].join(',')">
+    <div class="chips suggestions" x-show="filtered.length">
+      <template x-for="s in filtered" :key="s">
+        <button type="button" class="chip" @mousedown.prevent="add(s)" x-text="'#' + s"></button>
+      </template>
+    </div>
+  </div>
+
+  <label class="field">
+    <span>Notes</span>
+    <textarea name="notes" rows="5" placeholder="Yarn swaps, mods, where you left off…">{{ project.notes }}</textarea>
+  </label>
+
+  <label class="field">
+    <span>{{ "Add photos" if editing else "Photos" }}</span>
+    <input type="file" name="photos" accept="image/*" multiple>
+  </label>
+
+  <div class="form-actions">
+    <button class="btn btn-primary btn-lg">{{ "Save changes" if editing else "Create project" }}</button>
+    <a class="btn btn-lg" href="{{ '/projects/%d' % project.id if editing else '/' }}">Cancel</a>
+  </div>
+</form>
+{% endblock %}

@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#faf5ee">
+  <title>{% block title %}Crochet Studio{% endblock %}</title>
+  <link rel="icon" href="/static/yarn.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="/static/vendor/htmx.min.js" defer></script>
+  <script src="/static/app.js" defer></script>
+  <script src="/static/vendor/alpine.min.js" defer></script>
+</head>
+<body>
+  <header class="topbar">
+    <a href="/" class="brand">
+      <img src="/static/yarn.svg" alt="" width="30" height="30">
+      <span>Crochet Studio</span>
+    </a>
+    <nav class="topnav">
+      <a href="/" class="{% if request.url.path == '/' %}active{% endif %}">Projects</a>
+    </nav>
+    {% block topbar_action %}
+    <a href="/projects/new" class="btn btn-primary btn-new">+ New project</a>
+    {% endblock %}
+  </header>
+  <main class="page">
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

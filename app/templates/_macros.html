@@ -1,0 +1,25 @@
+{% macro status_pill(status) -%}
+<span class="pill status-{{ status.value }}">{{ STATUS_LABELS[status] }}</span>
+{%- endmacro %}
+
+{% macro thumb(project, cls="") -%}
+{% set cover = project.cover %}
+{% if cover %}
+  <img class="{{ cls }}" src="/media/{{ cover.thumb }}" alt="" loading="lazy">
+{% else %}
+  <div class="{{ cls }} placeholder status-{{ project.status.value }}"><img src="/static/yarn.svg" alt=""></div>
+{% endif %}
+{%- endmacro %}
+
+{% macro project_card(p) -%}
+<a class="card" href="/projects/{{ p.id }}">
+  {{ thumb(p, "card-img") }}
+  <div class="card-body">
+    <h3>{{ p.name }}</h3>
+    {% if p.recipient %}<p class="muted">for {{ p.recipient }}</p>{% endif %}
+    {% if p.tags %}
+    <p class="card-tags">{% for t in p.tags[:3] %}<span>#{{ t.name }}</span>{% endfor %}</p>
+    {% endif %}
+  </div>
+</a>
+{%- endmacro %}
