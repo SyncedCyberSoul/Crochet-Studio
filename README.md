@@ -16,7 +16,7 @@ If it says Python isn't installed, get it from python.org, and during install ti
 
 ## What's in it
 
-- **Profiles.** Pick who's crocheting (Jillian and Emma are ready to go). Passwords are optional: add one from the round initial at the top right, then **Profile & password**. Everyone's projects, patterns and ideas are their own.
+- **Profiles.** Pick who's crocheting. Passwords are optional: add one from the round initial at the top right, then **Profile & password**. Everyone's projects, patterns and ideas are their own.
 - **Dashboard.** Projects are grouped by status: In progress, Planned, Idea, Paused, Done and Frogged. Search as you type, or tap a **#tag** to filter.
 - **Projects and photos.** Add photos to any project (phone photos are turned the right way up). Moving a project to *In progress* or *Done* fills in the dates.
 - **Patterns, step by step.** Under **Patterns**, paste a pattern's text and tap **Split into steps**: each row or round becomes a step (fix any odd splits before saving). Attach the PDF too. Link the pattern to a project, then tap **Follow pattern** for a big one-step-at-a-time view with row and stitch counters and a **US/UK terms** switch. Every tap saves on its own; if the connection drops it keeps the change on the device and retries, and it reopens where she left off. "Keep screen on" stops the phone sleeping mid-row.
