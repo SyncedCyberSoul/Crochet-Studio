@@ -11,6 +11,8 @@
   <title>{% block title %}Crochet Studio{% endblock %}</title>
   <link rel="icon" href="/static/yarn.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="/static/yarn-180.png">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <script>if ("serviceWorker" in navigator) addEventListener("load", () => navigator.serviceWorker.register("/sw.js").catch(() => {}));</script>
   <script>try { var t = localStorage.getItem("theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}</script>
   <link rel="stylesheet" href="/static/style.css">
   <script src="/static/vendor/htmx.min.js" defer></script>
@@ -34,6 +36,7 @@
       {{ navlink("/", "Projects", "projects") }}
       {{ navlink("/patterns", "Patterns", "patterns") }}
       {{ navlink("/ideas", "Ideas", "ideas") }}
+      {{ navlink("/stash", "Stash", "stash") }}
       {{ navlink("/discover", "Discover", "discover") }}
       {{ navlink("/3d", "3D", "cube") }}
     </nav>
@@ -75,6 +78,7 @@
     {{ navlink("/", "Projects", "projects") }}
     {{ navlink("/patterns", "Patterns", "patterns") }}
     {{ navlink("/ideas", "Ideas", "ideas") }}
+    {{ navlink("/stash", "Stash", "stash") }}
     {{ navlink("/discover", "Discover", "discover") }}
     {{ navlink("/3d", "3D", "cube") }}
   </nav>

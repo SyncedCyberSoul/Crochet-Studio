@@ -128,8 +128,39 @@ document.addEventListener('alpine:init', () => {
     timer: null,
     keepAwake: false,
     lock: null,
+    // helpers
+    glossary: s.glossary || [],
+    timeSpent: s.timeSpent || 0,
+    gaugeMissing: s.gaugeMissing,
+    gaugeDismissed: false,
+    // track: what she counts while working: 'rows' (one tap per row/round), 'repeats' ("(sc, inc) x6"), 'stitches'
+    settings: { track: 'rows', breakMinutes: 0, markerEvery: 0, resetOnNext: true, rowOnNext: false, sound: true },
+    repeats: s.repeats || 0,
+    countCheck: null,
+    lastCheck: { label: '', count: 0 }, // text stays put while the note fades out
+    showCountHelp: false,
+    toastText: '',
+    tapMode: false,
+    explained: null,
+    breakDue: false,
+    toast: '',
+    toastTimer: null,
+    sessionSeconds: 0,
+    unsentSeconds: 0,
+    sinceBreak: 0,
+    lastActive: Date.now(),
+    voiceSupported: !!(window.SpeechRecognition || window.webkitSpeechRecognition),
+    voiceOn: false,
+    recog: null,
+    abbrRe: null,
     init() {
       this.terms = readText('terms') || this.terms;
+      this.settings = { ...this.settings, ...(readJSON('follow-settings') || {}) };
+      this.gaugeDismissed = readText('gauge-skip-' + this.projectId) === '1';
+      this.buildGlossary();
+      // Active time: counts while the page is open and she's touched it in the last 5 minutes (or voice is on).
+      setInterval(() => this.tick(), 1000);
+      ['pointerdown', 'keydown'].forEach((ev) => window.addEventListener(ev, () => { this.lastActive = Date.now(); }));
       let currentId = s.current;
       const backup = readJSON(this.backupKey);
       if (backup && Array.isArray(backup.queue) && backup.queue.length) {
@@ -140,6 +171,7 @@ document.addEventListener('alpine:init', () => {
           if ('current' in body) currentId = body.current;
           if ('rows' in body) this.rows = body.rows;
           if ('stitches' in body) this.stitches = body.stitches;
+          if ('repeats' in body) this.repeats = body.repeats;
         }
       }
       let i = this.steps.findIndex((x) => x.id === currentId);
@@ -147,7 +179,7 @@ document.addEventListener('alpine:init', () => {
       this.idx = i;
       window.addEventListener('online', () => this.flush());
       document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'hidden') this.flush(true);
+        if (document.visibilityState === 'hidden') { this.sendTime(); this.flush(true); }
         else if (this.keepAwake) this.setAwake();
       });
       window.addEventListener('beforeunload', (e) => {
@@ -165,8 +197,11 @@ document.addEventListener('alpine:init', () => {
     enqueue(body) {
       const last = this.queue[this.queue.length - 1];
       const lastIsSending = this.inFlight && this.queue.length === 1;
-      if (!('step_id' in body) && last && !('step_id' in last) && !lastIsSending) Object.assign(last, body);
-      else this.queue.push({ ...body });
+      if (!('step_id' in body) && last && !('step_id' in last) && !lastIsSending) {
+        const seconds = (last.add_seconds || 0) + (body.add_seconds || 0); // time adds up; everything else is latest-wins
+        Object.assign(last, body);
+        if (seconds) last.add_seconds = seconds;
+      } else this.queue.push({ ...body });
       this.writeBackup();
       this.flush();
     },
@@ -206,11 +241,23 @@ document.addEventListener('alpine:init', () => {
     },
     doneNext() {
       if (!this.step) return;
-      if (!this.step.done) {
+      const finishing = !this.step.done;
+      const finished = this.step;
+      if (finishing) {
         this.step.done = true;
         this.enqueue({ step_id: this.step.id, done: true });
+        if (this.settings.rowOnNext) { this.rows += 1; this.enqueue({ rows: this.rows }); }
+        // The real-world check: count once at the end of the row against the number in brackets.
+        this.countCheck = finished.count ? { label: finished.label || 'That row', count: finished.count } : null;
+        if (this.countCheck) this.lastCheck = this.countCheck;
+        if (this.countCheck) setTimeout(() => { if (this.countCheck && this.countCheck.count === finished.count) this.countCheck = null; }, 9000);
       }
       if (this.idx < this.steps.length - 1) this.go(this.idx + 1);
+      if (finishing && this.settings.resetOnNext) {
+        if (this.stitches) { this.stitches = 0; this.enqueue({ stitches: 0 }); }
+        if (this.repeats) { this.repeats = 0; this.enqueue({ repeats: 0 }); }
+      }
+      if (finishing && this.idx === this.steps.length - 1 && this.doneCount === this.steps.length) this.say('All done! Well done.');
       if (navigator.vibrate) navigator.vibrate(15);
     },
     toggle(st) {
@@ -221,6 +268,144 @@ document.addEventListener('alpine:init', () => {
       this[which] = Math.max(0, this[which] + d);
       this.enqueue({ [which]: this[which] });
       if (navigator.vibrate) navigator.vibrate(10);
+      if (d <= 0) return;
+      if (which === 'repeats' && this.repeatTarget && this.repeats === this.repeatTarget) {
+        this.showToast(`All ${this.repeatTarget} repeats done${this.target ? `: you should have ${this.target} sts` : ''}.`);
+        if (navigator.vibrate) navigator.vibrate([60, 60, 120]);
+        if (this.settings.sound) chime();
+        return;
+      }
+      if (which !== 'stitches') return;
+      if (this.target && this.stitches === this.target) {
+        this.showToast(`${this.target} stitches: that's the count for this step!`);
+        if (navigator.vibrate) navigator.vibrate([60, 60, 120]);
+        if (this.settings.sound) chime();
+      } else if (this.settings.markerEvery && this.stitches % this.settings.markerEvery === 0) {
+        this.showToast(`${this.stitches} stitches: place a marker`);
+        if (navigator.vibrate) navigator.vibrate([40, 40, 40]);
+      }
+    },
+    get target() { return (this.step && this.step.count) || 0; },
+    // "(sc, inc) x6" / "[sc 2, inc] × 6" / "rep from * 5 times" → how many repeats, and what's repeated.
+    get repeatInfo() {
+      const text = (this.step && this.step.text[this.terms]) || '';
+      const m = text.match(/([([][^)\]]{1,60}[)\]])\s*(?:x|×|\*)\s*(\d+)/i)
+        || text.match(/()\b(?:x|×)\s*(\d+)\b/i) || text.match(/()\b(\d+)\s*(?:more\s+)?times\b/i);
+      return m ? { what: m[1] || 'the repeat', times: Number(m[2]) } : null;
+    },
+    get repeatTarget() { return this.repeatInfo ? this.repeatInfo.times : 0; },
+    get tapUnit() { return { rows: 'rows', repeats: 'repeats', stitches: 'stitches' }[this.settings.track] || 'rows'; },
+    setTrack(mode) { this.settings.track = mode; this.saveSettings(); },
+    frog() {
+      // Rip back: un-check the last finished row and go back to it.
+      let i = this.idx;
+      if (!this.steps[i].done) i = Math.max(0, i - 1);
+      const st = this.steps[i];
+      if (!st) return;
+      if (st.done) { st.done = false; this.enqueue({ step_id: st.id, done: false }); }
+      if (this.settings.rowOnNext && this.rows) { this.rows -= 1; this.enqueue({ rows: this.rows }); }
+      this.go(i);
+      this.countCheck = null;
+      this.showToast(`Frogged back to ${st.label || 'the previous step'}. It happens to everyone!`);
+    },
+    showToast(text) {
+      this.toast = text;
+      this.toastText = text;
+      clearTimeout(this.toastTimer);
+      this.toastTimer = setTimeout(() => { this.toast = ''; }, 3200);
+    },
+    saveSettings() { writeJSON('follow-settings', this.settings); },
+    dismissGauge() { this.gaugeDismissed = true; writeText('gauge-skip-' + this.projectId, '1'); },
+
+    // ----- active time + stretch reminders -----
+    tick() {
+      const active = document.visibilityState === 'visible' && (this.voiceOn || Date.now() - this.lastActive < 5 * 60000);
+      if (!active || this.breakDue) return;
+      this.sessionSeconds += 1;
+      this.unsentSeconds += 1;
+      this.sinceBreak += 1;
+      if (this.unsentSeconds >= 60) this.sendTime();
+      if (this.settings.breakMinutes && this.sinceBreak >= this.settings.breakMinutes * 60) {
+        this.breakDue = true;
+        if (navigator.vibrate) navigator.vibrate([100, 80, 100]);
+        if (this.settings.sound) chime();
+      }
+    },
+    sendTime() {
+      if (!this.unsentSeconds) return;
+      this.enqueue({ add_seconds: this.unsentSeconds });
+      this.unsentSeconds = 0;
+    },
+    takeBreak() { this.breakDue = false; this.sinceBreak = 0; this.lastActive = Date.now(); },
+    fmt(seconds) {
+      const m = Math.round(seconds / 60);
+      return m < 60 ? `${m} min` : `${Math.floor(m / 60)} hr${m % 60 ? ' ' + (m % 60) + ' min' : ''}`;
+    },
+
+    // ----- tap a stitch abbreviation to see what it means -----
+    buildGlossary() {
+      const words = new Set();
+      for (const g of this.glossary) { words.add(g.us); words.add(g.uk); }
+      const list = [...words].filter(Boolean).sort((a, b) => b.length - a.length).map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+      this.abbrRe = list.length ? new RegExp(`(^|[^A-Za-z0-9-])(${list.join('|')})(?=$|[^A-Za-z0-9])`, 'gi') : null;
+    },
+    lookup(word) {
+      const w = word.toLowerCase();
+      const key = this.terms === 'uk' ? 'uk' : 'us';
+      return this.glossary.find((g) => g[key].toLowerCase() === w) || this.glossary.find((g) => g.us.toLowerCase() === w || g.uk.toLowerCase() === w);
+    },
+    marked(text) {
+      const safe = escapeHtml(text || '');
+      if (!this.abbrRe) return safe;
+      return safe.replace(this.abbrRe, (m, pre, word) => `${pre}<button type="button" class="abbr" data-abbr="${word}">${word}</button>`);
+    },
+    explain(e) {
+      const btn = e.target.closest('.abbr');
+      if (btn) this.explained = this.lookup(btn.dataset.abbr) || null;
+    },
+
+    // ----- hands-free voice -----
+    toggleVoice() {
+      if (this.voiceOn) { this.voiceOn = false; if (this.recog) this.recog.stop(); return; }
+      const Rec = window.SpeechRecognition || window.webkitSpeechRecognition;
+      const r = new Rec();
+      r.continuous = true;
+      r.interimResults = false;
+      r.lang = 'en-US';
+      r.onresult = (ev) => {
+        const said = ev.results[ev.results.length - 1][0].transcript.toLowerCase().trim();
+        this.lastActive = Date.now();
+        this.command(said);
+      };
+      r.onerror = (ev) => {
+        if (ev.error === 'not-allowed' || ev.error === 'service-not-allowed') {
+          this.voiceOn = false;
+          this.showToast('The microphone is blocked. Allow it in the browser to use hands-free.');
+        }
+      };
+      r.onend = () => { if (this.voiceOn) { try { r.start(); } catch (err) {} } }; // keep listening
+      this.recog = r;
+      this.voiceOn = true;
+      try { r.start(); this.showToast('Listening: say "next", "count", "back", "frog" or "read"'); } catch (err) { this.voiceOn = false; }
+    },
+    command(said) {
+      const has = (...words) => words.some((w) => new RegExp(`\\b${w}\\b`).test(said));
+      if (has('next', 'done', 'finished', 'check')) this.doneNext();
+      else if (has('back', 'previous', 'go back')) this.go(this.idx - 1);
+      else if (has('frog', 'rip')) this.frog();
+      else if (has('undo', 'minus')) this.bump(has('stitch', 'stitches') ? 'stitches' : has('repeat') ? 'repeats' : this.tapUnit, -1);
+      else if (has('stitch', 'stitches')) this.bump('stitches', 1);
+      else if (has('repeat', 'repeats')) this.bump('repeats', 1);
+      else if (has('row', 'round')) this.bump('rows', 1);
+      else if (has('count', 'plus', 'add', 'one', 'tap')) this.bump(this.tapUnit, 1);
+      else if (has('read', 'again', 'what')) this.say(this.step ? `${this.step.label || ''}. ${this.step.text[this.terms]}` : '');
+      else return;
+      this.showToast(`Heard "${said}"`);
+    },
+    say(text) {
+      if (!text || !window.speechSynthesis) return;
+      speechSynthesis.cancel();
+      speechSynthesis.speak(new SpeechSynthesisUtterance(text.replace(/\bsc\b/gi, 'single crochet').replace(/\binc\b/gi, 'increase').replace(/\bdec\b/gi, 'decrease')));
     },
     reset(which) {
       if (!this[which] || !confirm(`Reset the ${which} counter to 0?`)) return;
@@ -244,6 +429,30 @@ document.addEventListener('alpine:init', () => {
     },
   }));
 });
+
+function escapeHtml(s) {
+  return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+}
+
+// A soft two-note chime (no sound file needed).
+let audioCtx = null;
+function chime() {
+  try {
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    [660, 880].forEach((freq, i) => {
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      const t = audioCtx.currentTime + i * 0.16;
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0.0001, t);
+      gain.gain.exponentialRampToValueAtTime(0.18, t + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.35);
+      osc.connect(gain).connect(audioCtx.destination);
+      osc.start(t);
+      osc.stop(t + 0.4);
+    });
+  } catch (e) {}
+}
 
 // ---------- small helpers (storage can be blocked, e.g. private browsing) ----------
 let keySeq = 0;

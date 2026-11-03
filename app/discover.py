@@ -33,6 +33,7 @@ _lock = threading.Lock()
 
 IMG_RE = re.compile(r"<img[^>]+src=[\"']([^\"']+)[\"']", re.I)
 TAG_RE = re.compile(r"<[^>]+>")
+REDDIT_FOOTER_RE = re.compile(r"\s*submitted by\s+/u/\S+.*$", re.I)
 NS = {
     "media": "http://search.yahoo.com/mrss/",
     "content": "http://purl.org/rss/1.0/modules/content/",
@@ -99,7 +100,8 @@ def parse_feed(data: bytes, source: str, base: str) -> list[Item]:
         image = _image_from(entry, blobs, base)
         if not (title and link and image):
             continue  # Discover is a picture board; skip posts without one
-        summary = " ".join(unescape(TAG_RE.sub(" ", blobs[1] or blobs[0])).split())[:220]
+        summary = " ".join(unescape(TAG_RE.sub(" ", blobs[1] or blobs[0])).split())
+        summary = REDDIT_FOOTER_RE.sub("", summary).strip()[:220]  # Reddit appends "submitted by /u/… [link] [comments]"
         items.append(Item(unescape(title)[:160], link, image, source, summary))
         if len(items) >= PER_FEED:
             break

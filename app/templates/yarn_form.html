@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% set editing = yarn.id is not none %}
+{% block title %}{{ "Edit yarn" if editing else "Add yarn" }} · Crochet Studio{% endblock %}
+{% block content %}
+<a href="{{ '/stash/yarn/%d' % yarn.id if editing else '/stash' }}" class="back">← {{ "Back to yarn" if editing else "Stash" }}</a>
+<h1>{{ "Edit yarn" if editing else "Add yarn" }}</h1>
+{% if error %}<p class="alert">{{ error }}</p>{% endif %}
+<form method="post" action="{{ '/stash/yarn/%d' % yarn.id if editing else '/stash/yarn' }}" enctype="multipart/form-data" class="form">
+  <div class="row">
+    <label class="field"><span>Brand</span><input name="brand" value="{{ yarn.brand }}" placeholder="Lion Brand" {% if not editing %}autofocus{% endif %}></label>
+    <label class="field"><span>Yarn name</span><input name="line" value="{{ yarn.line }}" placeholder="Vanna's Choice"></label>
+  </div>
+  <div class="row">
+    <label class="field"><span>Colour</span><input name="colorway" value="{{ yarn.colorway }}" placeholder="Kelly Green"></label>
+    <label class="field"><span>Swatch colour</span><input type="color" name="color_hex" value="{{ yarn.color_hex or '#9bb34a' }}" class="color-input"></label>
+  </div>
+  <div class="row">
+    <label class="field">
+      <span>Weight</span>
+      <select name="weight">
+        <option value="">—</option>
+        {% for w in weights %}<option value="{{ w }}" {% if w == yarn.weight %}selected{% endif %}>{{ w }}</option>{% endfor %}
+      </select>
+    </label>
+    <label class="field"><span>Fibre</span><input name="fiber" value="{{ yarn.fiber }}" placeholder="100% acrylic"></label>
+  </div>
+  <div class="row three">
+    <label class="field"><span>Yards per skein</span><input name="yards_per_skein" inputmode="decimal" value="{{ yarn.yards_per_skein if yarn.yards_per_skein is not none else '' }}" placeholder="170"></label>
+    <label class="field"><span>Grams per skein</span><input name="grams_per_skein" inputmode="decimal" value="{{ yarn.grams_per_skein if yarn.grams_per_skein is not none else '' }}" placeholder="100"></label>
+    <label class="field"><span>Skeins on hand</span><input name="skeins_on_hand" inputmode="decimal" value="{{ yarn.skeins_on_hand or '' }}" placeholder="3"></label>
+  </div>
+  <div class="row">
+    <label class="field"><span>Dye lot</span><input name="dye_lot" value="{{ yarn.dye_lot }}"></label>
+    <label class="field"><span>Where it's kept</span><input name="location" value="{{ yarn.location }}" placeholder="Blue bin, closet"></label>
+  </div>
+  <label class="field"><span>{{ "Replace the photo" if yarn.image else "Photo" }} <small class="muted">(the label is handy)</small></span><input type="file" name="photo" accept="image/*"></label>
+  <label class="field"><span>Notes</span><textarea name="notes" rows="3">{{ yarn.notes }}</textarea></label>
+  <div class="form-actions">
+    <button class="btn btn-primary btn-lg">{{ "Save" if editing else "Add yarn" }}</button>
+    <a class="btn btn-lg" href="{{ '/stash/yarn/%d' % yarn.id if editing else '/stash' }}">Cancel</a>
+  </div>
+</form>
+{% endblock %}

@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}Stitch glossary · Crochet Studio{% endblock %}
+{% block content %}
+<div x-data="{ q: '', terms: (() => { try { return localStorage.getItem('terms') || 'us' } catch (e) { return 'us' } })() }">
+  <a href="/patterns" class="back">← Patterns</a>
+  <div class="page-head">
+    <div>
+      <h1>Stitch glossary</h1>
+      <p class="muted">Tap any abbreviation in a pattern while following it to see this. US and UK names differ, so both are shown.</p>
+    </div>
+  </div>
+  <form class="search" @submit.prevent>
+    <input type="search" x-model="q" placeholder="Search: sc, magic ring, puff…" aria-label="Search stitches">
+  </form>
+  <div class="glossary">
+    {% for s in stitches %}
+    <details class="gl-item" id="s{{ s.id }}"
+             x-show='!q || {{ (s.us ~ " " ~ s.uk ~ " " ~ s.name ~ " " ~ s.how_to) | lower | tojson }}.includes(q.toLowerCase())'>
+      <summary>
+        <span class="gl-abbr">{{ s.us }}</span>
+        <span class="gl-name">{{ s.name }}</span>
+        {% if s.uk != s.us %}<span class="gl-uk">UK: <strong>{{ s.uk }}</strong></span>{% endif %}
+      </summary>
+      <p>{{ s.how_to }}</p>
+      <form method="post" action="/stitches/{{ s.id }}/notes" class="gl-notes">
+        <label class="field"><span>Your notes</span><textarea name="notes" rows="2" placeholder="Tips, a video link…">{{ s.notes }}</textarea></label>
+        <button class="btn btn-sm">Save note</button>
+      </form>
+    </details>
+    {% endfor %}
+  </div>
+
+  <details class="panel add-details">
+    <summary class="btn">+ Add a stitch</summary>
+    <form method="post" action="/stitches" class="form">
+      <div class="row">
+        <label class="field"><span>US abbreviation</span><input name="us" required placeholder="e.g. bpsc"></label>
+        <label class="field"><span>UK abbreviation</span><input name="uk" placeholder="same if blank"></label>
+      </div>
+      <label class="field"><span>Name</span><input name="name"></label>
+      <label class="field"><span>How to</span><textarea name="how_to" rows="2"></textarea></label>
+      <div class="form-actions"><button class="btn btn-primary">Add stitch</button></div>
+    </form>
+  </details>
+</div>
+{% endblock %}

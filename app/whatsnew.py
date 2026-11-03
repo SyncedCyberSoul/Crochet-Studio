@@ -30,6 +30,19 @@ RELEASES = (
         "Every profile now has its own password.",
         "Add a profile photo: tap your circle at the top, then Profile & password.",
     )),
+    Release(4, "Helpers for while you crochet", (
+        "Stash: your yarn and tools, with photos. Link yarn to a project and it tells you if you have enough.",
+        "Pick what you count while following a pattern: rows, repeats like \"(sc, inc) x6\", or every stitch.",
+        "When you finish a round it reminds you what your stitch count should be, with help if it's off.",
+        "Tap pad: the whole screen becomes one big counter, great for long chains.",
+        "Make 2: \"Arms (make 2)\" becomes Arm 1 of 2 and Arm 2 of 2. \"Repeat rows 4-7 three times\" becomes real steps too.",
+        "Frog the last row with one tap. It happens to everyone!",
+        "Marker and stretch reminders: a nudge every N stitches, and a reminder to rest your hands and check your tension.",
+        "Tap any underlined stitch in a pattern to see how to do it, or open the Stitch glossary.",
+        "Hands-free: tap the mic and say \"next\", \"count\", \"back\", \"frog\" or \"read\".",
+        "Time tracking: see how long you've spent on each project.",
+        "Add Crochet Studio to your phone's home screen and it opens like an app.",
+    )),
 )
 LATEST = RELEASES[-1].version
 

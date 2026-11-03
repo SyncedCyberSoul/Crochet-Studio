@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+from urllib.parse import quote_plus
 
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy import func
@@ -12,10 +13,12 @@ from ..auth import (
     MIN_PASSWORD, check_password, clear_failures, get_setting, hash_password, is_local_request, lock_message,
     lock_remaining, read_session, record_failure, set_setting, write_session,
 )
+from ..backup import last_backup, run_backup
+from ..config import settings
 from ..db import get_session
 from ..deps import redirect
 from ..discover import DEFAULT_FEEDS, feed_list
-from ..models import AVATAR_COLORS, Idea, Model3D, Pattern, Project, User
+from ..models import AVATAR_COLORS, Idea, Model3D, Pattern, Project, Tool, User, Yarn
 from ..templating import templates
 from ..whatsnew import LATEST, WELCOME_PROFILE
 
@@ -99,7 +102,14 @@ def admin_home(request: Request, saved: str = "", error: str = "", session: Sess
     return templates.TemplateResponse(request, "admin.html", {
         "users": users, "counts": counts, "colors": AVATAR_COLORS, "feeds_text": feeds,
         "saved": saved, "error": error, "default_feed_count": len(DEFAULT_FEEDS),
+        "backup": last_backup(), "backup_dir": settings.backup_dir, "backup_time": settings.backup_time,
     })
+
+
+@router.post("/backup")
+async def backup_now():
+    result = await asyncio.to_thread(run_backup)
+    return redirect("/admin?" + ("saved=" if result.get("ok") else "error=Backup+failed:+") + quote_plus(result["message"]))
 
 
 @router.post("/users/{user_id}/view")
@@ -155,7 +165,8 @@ def delete_user(user_id: int, session: Session = Depends(get_session)):
     if not user:
         return redirect("/admin")
     folders = []
-    for model, folder in ((Project, "projects"), (Pattern, "patterns"), (Idea, "ideas"), (Model3D, "models")):
+    for model, folder in ((Project, "projects"), (Pattern, "patterns"), (Idea, "ideas"), (Model3D, "models"),
+                          (Yarn, "stash/yarn"), (Tool, "stash/tools")):
         for row in session.exec(select(model).where(model.user_id == user_id)).all():
             folders.append(f"{folder}/{row.id}")
             session.delete(row)

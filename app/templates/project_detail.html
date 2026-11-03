@@ -67,6 +67,7 @@
       <div><dt>Finished size</dt><dd>{{ project.finished_size or "—" }}</dd></div>
       <div><dt>Started</dt><dd>{{ project.start_date | nice_date or "—" }}</dd></div>
       <div><dt>Finished</dt><dd>{{ project.finish_date | nice_date or "—" }}</dd></div>
+      {% if project.time_spent %}<div><dt>Time crocheting</dt><dd>{{ project.time_spent | duration }}</dd></div>{% endif %}
     </dl>
     {% if project.notes %}
       <h3>Notes</h3>
@@ -119,6 +120,44 @@
     </div>
     {% else %}
       <p class="muted">No photos yet. Snap one of your progress!</p>
+    {% endif %}
+  </section>
+
+  <section class="panel" id="yarn">
+    <div class="panel-head"><h2>Yarn <span class="count">{{ yarn_lines | length }}</span></h2></div>
+    {% for line in yarn_lines %}
+    <div class="yarn-line verdict-{{ line.verdict }}">
+      <a href="/stash/yarn/{{ line.yarn.id }}" class="yarn-dot" style="--sw: {{ line.yarn.color_hex or '#d9c8b8' }}">
+        {% if line.yarn.thumb %}<img src="/media/{{ line.yarn.thumb }}" alt="">{% endif %}
+      </a>
+      <div class="list-main">
+        <h3><a href="/stash/yarn/{{ line.yarn.id }}">{{ line.yarn.title }}</a>{% if line.yarn.colorway %} <span class="muted">· {{ line.yarn.colorway }}</span>{% endif %}</h3>
+        <p class="yarn-verdict">
+          {% if line.verdict == "enough" %}✓ Enough: you have {{ line.on_hand | round | int }} yd{% if line.elsewhere %} ({{ line.elsewhere | round | int }} claimed by other projects){% endif %}.
+          {% elif line.verdict == "short" %}⚠ Short by about {{ line.short_by | round | int }} yd ({{ ((line.short_by / line.yarn.yards_per_skein) + 0.999) | int }} more skein{{ "" if ((line.short_by / line.yarn.yards_per_skein) + 0.999) | int == 1 else "s" }}){% if line.elsewhere %}, counting {{ line.elsewhere | round | int }} yd other projects need{% endif %}.
+          {% elif project.status.value == "done" %}Used in this project.
+          {% elif line.on_hand is none %}Add yards per skein to this yarn to check if there's enough.
+          {% else %}How many yards does the pattern need? Add it to check.{% endif %}
+        </p>
+      </div>
+      <form method="post" action="/project-yarn/{{ line.link.id }}" class="yards-form">
+        <input name="yards_needed" inputmode="decimal" value="{{ line.link.yards_needed | round | int if line.link.yards_needed else '' }}" placeholder="yd" aria-label="Yards needed">
+        <button class="btn btn-sm">Save</button>
+      </form>
+      <form method="post" action="/project-yarn/{{ line.link.id }}/delete"><button class="btn btn-sm btn-ghost-danger" aria-label="Remove yarn">×</button></form>
+    </div>
+    {% endfor %}
+    {% if my_yarn %}
+    <form method="post" action="/projects/{{ project.id }}/yarn" class="add-yarn">
+      <select name="yarn_id" aria-label="Yarn from your stash" required>
+        <option value="">Add yarn from your stash…</option>
+        {% for y in my_yarn %}<option value="{{ y.id }}">{{ y.title }}{% if y.colorway %} · {{ y.colorway }}{% endif %}</option>{% endfor %}
+      </select>
+      <input name="yards_needed" inputmode="decimal" placeholder="Yards needed" aria-label="Yards needed">
+      <button class="btn btn-primary">Add</button>
+    </form>
+    {% else %}
+    <p class="muted">No yarn in your stash yet. <a href="/stash/yarn/new">Add some</a> to link it here and check you have enough.</p>
     {% endif %}
   </section>
 

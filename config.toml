@@ -9,6 +9,12 @@ port = 8000
 db = "data/crochet.db"
 media = "data/media"
 
+[backup]
+# Nightly backup. Leave dir empty to use OneDrive\Crochet Studio Backups (or data\backups without OneDrive).
+dir = ""
+time = "03:00"   # local time, 24-hour
+keep = 14        # database snapshots to keep; photos are mirrored once, not copied every night
+
 [photos]
 # Longest edge of the stored photo, and the square thumbnail size, in pixels.
 full_px = 2400

@@ -14,6 +14,7 @@ from ..models import Pattern, PatternStep, Project, StepDone, User, utcnow
 from ..patternparse import parse_dicts
 from ..terms import both
 from ..templating import templates
+from .stitches import glossary_json
 
 router = APIRouter()
 
@@ -195,7 +196,11 @@ def follow(request: Request, project_id: int, user: User = Depends(current_user)
         "current": project.current_step_id,
         "rows": project.row_counter or 0,
         "stitches": project.stitch_counter or 0,
+        "repeats": project.repeat_counter or 0,
         "terms": pattern.terms,
+        "timeSpent": project.time_spent or 0,
+        "gaugeMissing": not project.gauge and not done,
+        "glossary": glossary_json(session),
     }
     return templates.TemplateResponse(request, "follow.html", {"project": project, "pattern": pattern, "state": state})
 
@@ -221,10 +226,13 @@ async def save_progress(request: Request, project_id: int,
     if "current" in body:
         current = _int_or_none(body["current"])
         project.current_step_id = current if current in pattern_steps else None
-    for key, field in (("rows", "row_counter"), ("stitches", "stitch_counter")):
+    for key, field in (("rows", "row_counter"), ("stitches", "stitch_counter"), ("repeats", "repeat_counter")):
         if key in body:
             value = _int_or_none(body[key])
             setattr(project, field, max(0, min(value or 0, 100000)))
+    if "add_seconds" in body:
+        # Active time from the follow page; capped so a stuck or replayed request can't add hours.
+        project.time_spent = (project.time_spent or 0) + max(0, min(_int_or_none(body["add_seconds"]) or 0, 900))
     project.updated_at = utcnow()
     session.commit()
     return {"ok": True}

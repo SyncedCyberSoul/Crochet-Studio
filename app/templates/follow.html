@@ -10,7 +10,16 @@
   <div class="progress" role="progressbar" :aria-valuenow="doneCount" aria-valuemin="0" :aria-valuemax="steps.length">
     <div class="progress-bar" :style="`width: ${pct}%`"></div>
   </div>
-  <p class="progress-text"><span x-text="doneCount"></span> of <span x-text="steps.length"></span> steps done · {{ pattern.title }}</p>
+  <p class="progress-text">
+    <span x-text="doneCount"></span> of <span x-text="steps.length"></span> steps done · {{ pattern.title }}
+    <span class="timer" x-show="sessionSeconds >= 60 || timeSpent >= 60">· ⏱ <span x-show="sessionSeconds >= 60"><span x-text="fmt(sessionSeconds)"></span> today, </span><span x-text="fmt(timeSpent + sessionSeconds)"></span> total</span>
+  </p>
+
+  <div class="alert gauge-alert" x-show="gaugeMissing && !gaugeDismissed" x-cloak>
+    <span>🧶 Checked your gauge? A quick swatch makes sure it comes out the right size.</span>
+    <a class="btn btn-sm" href="/projects/{{ project.id }}/edit">Add my gauge</a>
+    <button type="button" class="btn btn-sm" @click="dismissGauge()">Skip</button>
+  </div>
 
   <template x-if="steps.length === 0">
     <div class="empty"><p>This pattern has no steps yet.</p><a class="btn btn-primary" href="/patterns/{{ pattern.id }}/edit">Add steps</a></div>
@@ -23,18 +32,34 @@
         <h1 class="cs-label" x-text="step.label || ('Step ' + (idx + 1))"></h1>
         <span class="cs-count" x-show="step.count" x-text="step.count + ' sts'"></span>
       </div>
-      <p class="cs-text" x-text="step.text[terms]"></p>
+      <p class="cs-text" x-html="marked(step.text[terms])" @click="explain($event)"></p>
+      <p class="cs-hint muted" x-show="glossary.length">Tap an underlined stitch to see how it's done.</p>
       <div class="cs-nav">
         <button type="button" class="btn btn-lg" @click="go(idx - 1)" :disabled="idx === 0" aria-label="Previous step">←</button>
         <button type="button" class="btn btn-primary btn-xl" @click="doneNext()">
-          <span x-text="step.done ? (idx < steps.length - 1 ? 'Next →' : 'All done!') : (idx < steps.length - 1 ? '✓ Done, next' : '✓ Finish')"></span>
+          <span x-text="step.done ? (idx < steps.length - 1 ? 'Next →' : 'All done!') : (idx < steps.length - 1 ? '✓ Done' : '✓ Finish')"></span>
         </button>
         <button type="button" class="btn btn-lg" @click="go(idx + 1)" :disabled="idx >= steps.length - 1" aria-label="Next step">→</button>
       </div>
+      <button type="button" class="link-btn frog-btn" x-show="doneCount" @click="frog()">↶ Frog the last row</button>
     </section>
   </template>
 
-  <section class="counters">
+  <div class="count-check" x-show="countCheck" x-transition x-cloak>
+    <span>✓ <strong x-text="lastCheck.label"></strong> done. Count check: you should have <strong x-text="lastCheck.count"></strong> sts.</span>
+    <button type="button" class="link-btn" @click="showCountHelp = true">It's off?</button>
+  </div>
+
+  <div class="track-pick">
+    <span class="muted">Count:</span>
+    <div class="segmented small" role="group" aria-label="What to count">
+      <label><input type="radio" value="rows" :checked="settings.track === 'rows'" @change="setTrack('rows')"><span>Rows</span></label>
+      <label><input type="radio" value="repeats" :checked="settings.track === 'repeats'" @change="setTrack('repeats')"><span>Repeats</span></label>
+      <label><input type="radio" value="stitches" :checked="settings.track === 'stitches'" @change="setTrack('stitches')"><span>Stitches</span></label>
+    </div>
+  </div>
+
+  <section class="counters" :class="{ single: settings.track === 'rows' }">
     <div class="counter">
       <p class="counter-name">Rows</p>
       <p class="counter-value" x-text="rows"></p>
@@ -42,16 +67,37 @@
         <button type="button" class="btn counter-minus" @click="bump('rows', -1)" aria-label="Rows minus one">−</button>
         <button type="button" class="btn btn-primary counter-plus" @click="bump('rows', 1)" aria-label="Rows plus one">+</button>
       </div>
-      <button type="button" class="link-btn" @click="reset('rows')">Reset</button>
+      <div class="counter-links">
+        <button type="button" class="link-btn" x-show="settings.track === 'rows'" @click="tapMode = true">Tap pad</button>
+        <button type="button" class="link-btn" @click="reset('rows')">Reset</button>
+      </div>
     </div>
-    <div class="counter">
-      <p class="counter-name">Stitches</p>
+    <div class="counter" x-show="settings.track === 'repeats'" :class="{ 'hit-target': repeatTarget && repeats >= repeatTarget }" x-cloak>
+      <p class="counter-name">Repeats<span x-show="repeatTarget" x-text="' of ' + repeatTarget"></span></p>
+      <p class="counter-value" x-text="repeats"></p>
+      <p class="counter-what" x-text="repeatInfo ? repeatInfo.what : 'No repeat in this step'"></p>
+      <div class="mini-progress" x-show="repeatTarget"><div :style="`width: ${Math.min(100, repeats / repeatTarget * 100)}%`"></div></div>
+      <div class="counter-btns">
+        <button type="button" class="btn counter-minus" @click="bump('repeats', -1)" aria-label="Repeats minus one">−</button>
+        <button type="button" class="btn btn-primary counter-plus" @click="bump('repeats', 1)" aria-label="Repeats plus one">+</button>
+      </div>
+      <div class="counter-links">
+        <button type="button" class="link-btn" @click="tapMode = true">Tap pad</button>
+        <button type="button" class="link-btn" @click="reset('repeats')">Reset</button>
+      </div>
+    </div>
+    <div class="counter" x-show="settings.track === 'stitches'" :class="{ 'hit-target': target && stitches >= target }" x-cloak>
+      <p class="counter-name">Stitches<span x-show="target" x-text="' of ' + target"></span></p>
       <p class="counter-value" x-text="stitches"></p>
+      <div class="mini-progress" x-show="target"><div :style="`width: ${Math.min(100, stitches / target * 100)}%`"></div></div>
       <div class="counter-btns">
         <button type="button" class="btn counter-minus" @click="bump('stitches', -1)" aria-label="Stitches minus one">−</button>
         <button type="button" class="btn btn-primary counter-plus" @click="bump('stitches', 1)" aria-label="Stitches plus one">+</button>
       </div>
-      <button type="button" class="link-btn" @click="reset('stitches')">Reset</button>
+      <div class="counter-links">
+        <button type="button" class="link-btn" @click="tapMode = true">Tap pad</button>
+        <button type="button" class="link-btn" @click="reset('stitches')">Reset</button>
+      </div>
     </div>
   </section>
 
@@ -60,10 +106,33 @@
       <label><input type="radio" value="us" x-model="terms" @change="rememberTerms()"><span>US terms</span></label>
       <label><input type="radio" value="uk" x-model="terms" @change="rememberTerms()"><span>UK terms</span></label>
     </div>
-    <label class="check" x-show="'wakeLock' in navigator">
-      <input type="checkbox" x-model="keepAwake" @change="setAwake()"> Keep screen on
-    </label>
+    <button type="button" class="btn btn-sm voice-btn" x-show="voiceSupported" :class="{ on: voiceOn }" @click="toggleVoice()"
+            :aria-pressed="voiceOn">🎙 <span x-text="voiceOn ? 'Listening: say next, count, back, frog, read' : 'Hands-free'"></span></button>
   </div>
+
+  <details class="panel helpers">
+    <summary><h2>Helpers</h2><span class="muted">reminders, markers, screen</span></summary>
+    <div class="helper-grid">
+      <label class="field">
+        <span>Stretch &amp; tension reminder</span>
+        <select x-model.number="settings.breakMinutes" @change="saveSettings()">
+          <option :value="0">Off</option><option :value="20">Every 20 min</option><option :value="30">Every 30 min</option>
+          <option :value="45">Every 45 min</option><option :value="60">Every hour</option>
+        </select>
+      </label>
+      <label class="field">
+        <span>Stitch marker reminder</span>
+        <select x-model.number="settings.markerEvery" @change="saveSettings()">
+          <option :value="0">Off</option><option :value="5">Every 5 stitches</option><option :value="10">Every 10</option>
+          <option :value="20">Every 20</option><option :value="25">Every 25</option><option :value="50">Every 50</option>
+        </select>
+      </label>
+      <label class="check"><input type="checkbox" x-model="settings.resetOnNext" @change="saveSettings()"> Start the stitch count at 0 on each new step</label>
+      <label class="check"><input type="checkbox" x-model="settings.rowOnNext" @change="saveSettings()"> Add 1 to the row counter when I finish a step</label>
+      <label class="check"><input type="checkbox" x-model="settings.sound" @change="saveSettings()"> Chime when I reach the stitch count</label>
+      <label class="check" x-show="'wakeLock' in navigator"><input type="checkbox" x-model="keepAwake" @change="setAwake()"> Keep screen on</label>
+    </div>
+  </details>
 
   <section class="panel">
     <h2>All steps</h2>
@@ -84,5 +153,70 @@
       </template>
     </ol>
   </section>
+
+  <!-- tap pad: the whole screen is one big +1 button -->
+  <div class="tap-pad" x-show="tapMode" x-transition.opacity x-cloak>
+    <button type="button" class="tap-area" @click="bump(tapUnit, 1)" :aria-label="'Add one to ' + tapUnit">
+      <span class="tap-label" x-text="(step && step.label ? step.label + ' · ' : '') + ({ rows: 'Rows', repeats: 'Repeats', stitches: 'Stitches' })[tapUnit]"></span>
+      <span class="tap-count" x-text="$data[tapUnit]"></span>
+      <span class="tap-target" x-show="tapUnit === 'stitches' && target" x-text="'of ' + target"></span>
+      <span class="tap-target" x-show="tapUnit === 'repeats' && repeatTarget" x-text="'of ' + repeatTarget + (repeatInfo ? ' · ' + repeatInfo.what : '')"></span>
+      <span class="tap-hint">Tap anywhere to count</span>
+    </button>
+    <div class="tap-bar">
+      <button type="button" class="btn btn-lg" @click="bump(tapUnit, -1)">Undo</button>
+      <button type="button" class="btn btn-lg" @click="reset(tapUnit)">Reset</button>
+      <button type="button" class="btn btn-lg btn-primary" @click="tapMode = false">Done</button>
+    </div>
+  </div>
+
+  <!-- glossary popover -->
+  <div class="modal-backdrop" x-show="explained" x-transition.opacity @click.self="explained = null" @keydown.escape.window="explained = null" x-cloak>
+    <div class="modal gl-pop" role="dialog" aria-modal="true">
+      <template x-if="explained">
+        <div>
+          <p class="eyebrow" x-text="'US ' + explained.us + (explained.uk !== explained.us ? ' · UK ' + explained.uk : '')"></p>
+          <h2 x-text="explained.name"></h2>
+          <p x-text="explained.how"></p>
+          <p class="muted" x-show="explained.notes" x-text="explained.notes"></p>
+          <button type="button" class="btn btn-primary btn-lg" @click="explained = null">Got it</button>
+          <p><a href="/stitches">Open the stitch glossary</a></p>
+        </div>
+      </template>
+    </div>
+  </div>
+
+  <!-- stitch count is off: the usual suspects -->
+  <div class="modal-backdrop" x-show="showCountHelp" x-transition.opacity @click.self="showCountHelp = false" x-cloak>
+    <div class="modal gl-pop" role="dialog" aria-modal="true">
+      <p class="eyebrow">Count is off?</p>
+      <h2>The usual suspects</h2>
+      <ul class="whatsnew-list">
+        <li><strong>A few too many:</strong> often an extra stitch in the first or last stitch of the round, or working into the slip-stitch join.</li>
+        <li><strong>A few too few:</strong> a skipped increase, or a missed last stitch. In a spiral it's easy to miss the stitch under the marker.</li>
+        <li><strong>Off by one each round:</strong> move your marker up every round, into the first stitch.</li>
+        <li><strong>Way off:</strong> check you're reading the right round, then compare a repeat, like "(sc, inc)", with what you made.</li>
+        <li>Only 1 off on a toy? Many makers fix it quietly in the next round with an extra inc or dec.</li>
+      </ul>
+      <button type="button" class="btn btn-primary btn-lg" @click="showCountHelp = false">Thanks</button>
+      <button type="button" class="btn btn-lg" @click="showCountHelp = false; frog()">Frog the last row</button>
+    </div>
+  </div>
+
+  <!-- stretch & tension reminder -->
+  <div class="modal-backdrop" x-show="breakDue" x-transition.opacity x-cloak>
+    <div class="modal" role="alertdialog" aria-modal="true">
+      <div class="welcome-art" aria-hidden="true"><img src="/static/yarn.svg" alt="" width="64" height="64"></div>
+      <h2>Time for a little stretch</h2>
+      <ul class="whatsnew-list">
+        <li>Loosen your grip on the hook and roll your shoulders.</li>
+        <li>Stretch your fingers and wrists, and look away from the work for a moment.</li>
+        <li>Check your tension: are the last few rows the same size as the earlier ones?</li>
+      </ul>
+      <button type="button" class="btn btn-primary btn-lg" @click="takeBreak()">Back to it</button>
+    </div>
+  </div>
+
+  <div class="toast" x-show="toast" x-transition x-text="toastText" role="status" x-cloak></div>
 </div>
 {% endblock %}
