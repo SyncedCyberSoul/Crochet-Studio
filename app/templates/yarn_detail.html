@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}{{ yarn.title }} · Stash · Crochet Studio{% endblock %}
+{% block content %}
+<a href="/stash" class="back">← Stash</a>
+{% if note %}<p class="alert">{{ note }}</p>{% endif %}
+<section class="hero">
+  {% if yarn.image %}
+    <a class="hero-img natural" href="/media/{{ yarn.image }}" target="_blank" rel="noopener"><img src="/media/{{ yarn.image }}" alt=""></a>
+  {% else %}
+    <div class="hero-img swatch-card" style="--sw: {{ yarn.color_hex or '#d9c8b8' }}"><img src="/static/yarn.svg" alt=""></div>
+  {% endif %}
+  <div class="hero-info">
+    {% if yarn.weight %}<span class="pill status-planned">{{ yarn.weight }}</span>{% endif %}
+    <h1>{{ yarn.title }}</h1>
+    {% if yarn.colorway %}<p class="lead muted">{{ yarn.colorway }}</p>{% endif %}
+    <div class="skein-counter">
+      <form method="post" action="/stash/yarn/{{ yarn.id }}/skeins"><input type="hidden" name="by" value="1"><input type="hidden" name="dir" value="down">
+        <button class="btn" aria-label="One skein fewer">−</button></form>
+      <div><strong>{{ yarn.skeins_on_hand | round(1) | replace(".0", "") }}</strong> skein{{ "" if yarn.skeins_on_hand == 1 else "s" }}
+        {% if yarn.yards_on_hand is not none %}<br><span class="muted">{{ yarn.yards_on_hand | round | int }} yards</span>{% endif %}</div>
+      <form method="post" action="/stash/yarn/{{ yarn.id }}/skeins"><input type="hidden" name="by" value="1">
+        <button class="btn btn-primary" aria-label="One skein more">+</button></form>
+    </div>
+    <div class="actions"><a class="btn" href="/stash/yarn/{{ yarn.id }}/edit">Edit</a></div>
+  </div>
+</section>
+
+<section class="panel">
+  <h2>Details</h2>
+  <dl class="facts">
+    <div><dt>Fibre</dt><dd>{{ yarn.fiber or "—" }}</dd></div>
+    <div><dt>Per skein</dt><dd>{% if yarn.yards_per_skein %}{{ yarn.yards_per_skein | round | int }} yd{% endif %}{% if yarn.yards_per_skein and yarn.grams_per_skein %} · {% endif %}{% if yarn.grams_per_skein %}{{ yarn.grams_per_skein | round | int }} g{% endif %}{% if not yarn.yards_per_skein and not yarn.grams_per_skein %}—{% endif %}</dd></div>
+    <div><dt>Dye lot</dt><dd>{{ yarn.dye_lot or "—" }}</dd></div>
+    <div><dt>Kept in</dt><dd>{{ yarn.location or "—" }}</dd></div>
+    <div><dt>Claimed by projects</dt><dd>{{ claimed | round | int }} yd</dd></div>
+  </dl>
+  {% if yarn.notes %}<div class="notes">{{ yarn.notes }}</div>{% endif %}
+</section>
+
+<section class="panel">
+  <h2>Used in</h2>
+  {% if uses %}
+  <div class="list">
+    {% for link, p in uses %}
+    <a class="list-row" href="/projects/{{ p.id }}#yarn">
+      <div class="list-main"><h3>{{ p.name }}</h3><p class="muted">{{ p.status_label }}{% if link.yards_needed %} · needs {{ link.yards_needed | round | int }} yd{% endif %}</p></div>
+    </a>
+    {% endfor %}
+  </div>
+  {% else %}<p class="muted">Not linked to any project yet. Add it from a project's page.</p>{% endif %}
+</section>
+
+<section class="danger-zone">
+  <form method="post" action="/stash/yarn/{{ yarn.id }}/delete" onsubmit="return confirm('Remove this yarn from your stash?')">
+    <button class="btn btn-ghost-danger">Delete yarn</button>
+  </form>
+</section>
+{% endblock %}

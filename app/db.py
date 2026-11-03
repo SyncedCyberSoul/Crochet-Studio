@@ -60,6 +60,18 @@ def init_db() -> None:
     SQLModel.metadata.create_all(engine)
     _add_missing_columns()
     _seed_profiles()
+    _seed_glossary()
+
+
+def _seed_glossary() -> None:
+    from .glossary import STITCHES
+    from .models import Stitch
+
+    with Session(engine) as session:
+        if session.exec(select(Stitch)).first():
+            return
+        session.add_all(Stitch(us=us, uk=uk, name=name, how_to=how) for us, uk, name, how in STITCHES)
+        session.commit()
 
 
 DEFAULT_PROFILES = [("Jillian", "#c4694b"), ("Emma", "#7f9a7e")]
@@ -67,7 +79,7 @@ DEFAULT_PROFILES = [("Jillian", "#c4694b"), ("Emma", "#7f9a7e")]
 
 def _seed_profiles() -> None:
     """First run: create the household's profiles and give them anything made before profiles existed."""
-    from .models import Idea, Model3D, Pattern, Project, User
+    from .models import Idea, Model3D, Pattern, Project, Tool, User, Yarn
 
     with Session(engine) as session:
         if session.exec(select(User)).first():
@@ -76,7 +88,7 @@ def _seed_profiles() -> None:
         session.add_all(users)
         session.flush()
         owner = users[0].id
-        for model in (Project, Pattern, Idea, Model3D):
+        for model in (Project, Pattern, Idea, Model3D, Yarn, Tool):
             for row in session.exec(select(model).where(model.user_id == None)).all():  # noqa: E711
                 row.user_id = owner
         session.commit()

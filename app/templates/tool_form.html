@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% set editing = tool.id is not none %}
+{% block title %}{{ "Edit tool" if editing else "Add a tool" }} · Crochet Studio{% endblock %}
+{% block content %}
+<a href="/stash?tab=tools" class="back">← Tools</a>
+<h1>{{ "Edit tool" if editing else "Add a tool" }}</h1>
+<form method="post" action="{{ '/stash/tools/%d' % tool.id if editing else '/stash/tools' }}" enctype="multipart/form-data" class="form">
+  <label class="field">
+    <span>What is it?</span>
+    <select name="kind">{% for k in kinds %}<option {% if k == tool.kind %}selected{% endif %}>{{ k }}</option>{% endfor %}</select>
+  </label>
+  <div class="row">
+    <label class="field"><span>Size</span><input name="size" value="{{ tool.size }}" list="hook-sizes" placeholder="5.0 mm (H-8), 12 mm…">
+      <datalist id="hook-sizes">{% for h in HOOK_SIZES %}<option value="{{ h }}">{% endfor %}</datalist></label>
+    <label class="field"><span>How many</span><input name="quantity" inputmode="numeric" value="{{ tool.quantity or 1 }}"></label>
+  </div>
+  <label class="field"><span>Material / brand</span><input name="material" value="{{ tool.material }}" placeholder="Clover Amour, bamboo, aluminium…"></label>
+  <label class="field"><span>{{ "Replace the photo" if tool.image else "Photo" }}</span><input type="file" name="photo" accept="image/*"></label>
+  <label class="field"><span>Notes</span><textarea name="notes" rows="2">{{ tool.notes }}</textarea></label>
+  <div class="form-actions">
+    <button class="btn btn-primary btn-lg">{{ "Save" if editing else "Add tool" }}</button>
+    <a class="btn btn-lg" href="/stash?tab=tools">Cancel</a>
+  </div>
+</form>
+{% if editing %}
+<section class="danger-zone">
+  <form method="post" action="/stash/tools/{{ tool.id }}/delete" onsubmit="return confirm('Delete this tool?')"><button class="btn btn-ghost-danger">Delete tool</button></form>
+</section>
+{% endif %}
+{% endblock %}

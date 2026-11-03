@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}Stash · Crochet Studio{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>Stash</h1>
+  <div class="actions">
+    {% if tab == "tools" %}<a href="/stash/tools/new" class="btn btn-primary">+ Add a tool</a>
+    {% else %}<a href="/stash/yarn/new" class="btn btn-primary">+ Add yarn</a>{% endif %}
+  </div>
+</div>
+
+<div class="segmented tabs-seg" role="tablist">
+  <a href="/stash?tab=yarn{% if q %}&q={{ q | urlencode }}{% endif %}" class="{% if tab == 'yarn' %}on{% endif %}" role="tab">Yarn <small>{{ yarns | length }}</small></a>
+  <a href="/stash?tab=tools{% if q %}&q={{ q | urlencode }}{% endif %}" class="{% if tab == 'tools' %}on{% endif %}" role="tab">Tools <small>{{ tools | length }}</small></a>
+</div>
+
+<form class="search" action="/stash" method="get">
+  <input type="hidden" name="tab" value="{{ tab }}">
+  <input type="search" name="q" value="{{ q }}" placeholder="{{ 'Search hooks, sizes, notions…' if tab == 'tools' else 'Search brand, colour, fibre, weight, where it is…' }}" aria-label="Search stash">
+</form>
+
+{% if tab == "yarn" %}
+  {% if not yarns %}
+  <div class="empty">
+    <img src="/static/yarn.svg" alt="" width="72" height="72">
+    <h2>{{ "Nothing matches" if q else "No yarn yet" }}</h2>
+    {% if not q %}<p>Add the yarn you have, with a photo, and projects can check whether there's enough.</p>
+    <a href="/stash/yarn/new" class="btn btn-primary btn-lg">+ Add your first yarn</a>{% endif %}
+  </div>
+  {% else %}
+  <div class="grid">
+    {% for y in yarns %}
+    <a class="card" href="/stash/yarn/{{ y.id }}">
+      {% if y.thumb %}<img class="card-img" src="/media/{{ y.thumb }}" alt="" loading="lazy">
+      {% else %}<div class="card-img swatch-card" style="--sw: {{ y.color_hex or '#d9c8b8' }}"><img src="/static/yarn.svg" alt=""></div>{% endif %}
+      <div class="card-body">
+        <h3>{{ y.title }}</h3>
+        <p class="muted">{{ y.colorway or "—" }}</p>
+        <p class="card-tags">
+          {% if y.weight %}<span>{{ y.weight }}</span>{% endif %}
+          <span>{{ y.skeins_on_hand | round(1) | replace(".0", "") }} skein{{ "" if y.skeins_on_hand == 1 else "s" }}</span>
+          {% if y.yards_on_hand %}<span>{{ y.yards_on_hand | round | int }} yd</span>{% endif %}
+        </p>
+      </div>
+    </a>
+    {% endfor %}
+  </div>
+  {% endif %}
+{% else %}
+  {% if not tools %}
+  <div class="empty">
+    <img src="/static/yarn.svg" alt="" width="72" height="72">
+    <h2>{{ "Nothing matches" if q else "No tools yet" }}</h2>
+    {% if not q %}<p>Hooks, needles, markers, safety eyes: know what you have before you buy more.</p>
+    <a href="/stash/tools/new" class="btn btn-primary btn-lg">+ Add your first tool</a>{% endif %}
+  </div>
+  {% else %}
+  <div class="list">
+    {% for t in tools %}
+    <a class="list-row" href="/stash/tools/{{ t.id }}/edit">
+      {% if t.thumb %}<img class="list-thumb" src="/media/{{ t.thumb }}" alt="">{% else %}<div class="list-icon">{{ t.kind[:1] }}</div>{% endif %}
+      <div class="list-main">
+        <h3>{{ t.kind }}{% if t.size %} · {{ t.size }}{% endif %}</h3>
+        <p class="muted">{{ t.material or "" }}{% if t.material and t.notes %} · {% endif %}{{ t.notes }}</p>
+      </div>
+      <span class="pill status-paused">× {{ t.quantity }}</span>
+    </a>
+    {% endfor %}
+  </div>
+  {% endif %}
+{% endif %}
+{% endblock %}

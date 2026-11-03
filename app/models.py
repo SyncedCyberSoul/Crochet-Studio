@@ -93,7 +93,9 @@ class Project(SQLModel, table=True):
     user_id: Optional[int] = Field(default=None, index=True)
     row_counter: int = 0
     stitch_counter: int = 0
+    repeat_counter: int = 0  # "(sc, inc) x6": how many of the 6 are done
     current_step_id: Optional[int] = None
+    time_spent: int = 0  # seconds of active time in follow-along mode
     created_at: datetime = Field(default_factory=utcnow)
     updated_at: datetime = Field(default_factory=utcnow)
 
@@ -192,6 +194,73 @@ class Idea(SQLModel, table=True):
 
         host = urlparse(self.source_url).hostname or ""
         return host.removeprefix("www.")
+
+
+# ---------- stash ----------
+
+YARN_WEIGHTS = ["0 Lace", "1 Super Fine", "2 Fine", "3 Light", "4 Medium", "5 Bulky", "6 Super Bulky", "7 Jumbo"]
+TOOL_TYPES = ["Hook", "Needle", "Stitch markers", "Safety eyes", "Stuffing", "Scissors", "Notion", "Other"]
+
+
+class Yarn(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: Optional[int] = Field(default=None, index=True)
+    brand: str = ""
+    line: str = ""  # product name, e.g. "Vanna's Choice"
+    colorway: str = ""
+    color_hex: str = ""  # swatch colour for quick scanning
+    dye_lot: str = ""
+    weight: str = ""
+    fiber: str = ""
+    yards_per_skein: Optional[float] = None
+    grams_per_skein: Optional[float] = None
+    skeins_on_hand: float = 0
+    location: str = ""
+    notes: str = ""
+    image: str = ""
+    thumb: str = ""
+    created_at: datetime = Field(default_factory=utcnow)
+
+    @property
+    def title(self) -> str:
+        return " ".join(x for x in (self.brand, self.line) if x) or "Yarn"
+
+    @property
+    def yards_on_hand(self) -> Optional[float]:
+        return round(self.yards_per_skein * self.skeins_on_hand, 1) if self.yards_per_skein else None
+
+
+class ProjectYarn(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    project_id: int = Field(foreign_key="project.id", index=True, ondelete="CASCADE")
+    yarn_id: int = Field(foreign_key="yarn.id", index=True, ondelete="CASCADE")
+    yards_needed: Optional[float] = None
+    skeins_used: Optional[float] = None
+    notes: str = ""
+
+
+class Tool(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: Optional[int] = Field(default=None, index=True)
+    kind: str = "Hook"
+    size: str = ""
+    material: str = ""
+    quantity: int = 1
+    notes: str = ""
+    image: str = ""
+    thumb: str = ""
+    created_at: datetime = Field(default_factory=utcnow)
+
+
+class Stitch(SQLModel, table=True):
+    """Shared glossary (seeded with standard US abbreviations); personal notes live on each row."""
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    us: str = Field(index=True)  # abbreviation in US terms
+    uk: str = ""
+    name: str = ""
+    how_to: str = ""
+    notes: str = ""
 
 
 # ---------- 3D ----------

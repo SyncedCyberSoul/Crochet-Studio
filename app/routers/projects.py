@@ -11,10 +11,12 @@ from .. import media
 from ..db import get_session
 from ..deps import current_user, owned, redirect
 from ..models import (
-    DASHBOARD_ORDER, Model3D, Pattern, Project, ProjectPhoto, ProjectStatus, ProjectTagLink, StepDone, Tag, User, utcnow,
+    DASHBOARD_ORDER, Model3D, Pattern, Project, ProjectPhoto, ProjectStatus, ProjectTagLink, StepDone, Tag, User, Yarn,
+    utcnow,
 )
 from ..tags import parse_tags
 from ..templating import templates
+from .stash import yarn_lines
 
 router = APIRouter()
 
@@ -168,8 +170,10 @@ def project_detail(request: Request, project_id: int, rejected: int = 0,
     if pattern:
         done = session.exec(select(func.count()).select_from(StepDone).where(StepDone.project_id == project.id)).one()
     models = session.exec(select(Model3D).where(Model3D.project_id == project.id)).all()
+    my_yarn = session.exec(select(Yarn).where(Yarn.user_id == user.id).order_by(Yarn.brand, Yarn.line)).all()
     return templates.TemplateResponse(request, "project_detail.html", {
         "project": project, "rejected": rejected, "pattern": pattern, "steps_done": done, "models": models,
+        "yarn_lines": yarn_lines(session, project), "my_yarn": my_yarn,
     })
 
 

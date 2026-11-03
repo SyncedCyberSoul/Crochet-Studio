@@ -64,6 +64,22 @@
 </section>
 
 <section class="panel">
+  <div class="panel-head">
+    <h2>Backups</h2>
+    <form method="post" action="/admin/backup"><button class="btn btn-primary">Back up now</button></form>
+  </div>
+  <p>Every night at <strong>{{ backup_time }}</strong>, Crochet Studio saves a copy of everything to<br><code>{{ backup_dir }}</code></p>
+  {% if backup %}
+    <p class="{{ 'alert ok' if backup.ok else 'alert' }}">
+      Last backup: {{ backup.at.replace("T", " at ") }}. {{ backup.message }}
+    </p>
+  {% else %}
+    <p class="muted">No backup yet. The first one runs a couple of minutes after the app starts, or tap Back up now.</p>
+  {% endif %}
+  <p class="muted">To restore: close the app, copy a file from <code>db</code> over <code>data\crochet.db</code> (renaming it), and copy the <code>media</code> folder back into <code>data</code>. Change the folder or time in <code>config.toml</code>.</p>
+</section>
+
+<section class="panel">
   <h2>Discover feeds</h2>
   <p class="muted">One per line: <code>Name | feed URL</code>. Blog feeds usually end in <code>/feed</code>. A Pinterest board works too: <code>https://www.pinterest.com/USER/BOARD.rss</code>. Clear the box and save to go back to the {{ default_feed_count }} default feeds.</p>
   <form method="post" action="/admin/feeds" class="form form-wide">

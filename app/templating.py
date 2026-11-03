@@ -27,7 +27,16 @@ def _nice_date(value: date | None) -> str:
     return value.strftime("%b %d, %Y").replace(" 0", " ")
 
 
+def _duration(seconds: int | None) -> str:
+    minutes = round((seconds or 0) / 60)
+    if minutes < 60:
+        return f"{minutes} min"
+    hours, minutes = divmod(minutes, 60)
+    return f"{hours} hr {minutes} min" if minutes else f"{hours} hr"
+
+
 templates.env.filters["nice_date"] = _nice_date
+templates.env.filters["duration"] = _duration
 templates.env.globals.update(
     STATUS_LABELS=STATUS_LABELS,
     STATUSES=list(ProjectStatus),
