@@ -26,6 +26,10 @@ RELEASES = (
         "Discover: fresh project ideas from crochet blogs.",
         "3D: turn a photo of your work into a model you can spin around.",
     )),
+    Release(3, "Passwords and photos", (
+        "Every profile now has its own password.",
+        "Add a profile photo: tap your circle at the top, then Profile & password.",
+    )),
 )
 LATEST = RELEASES[-1].version
 

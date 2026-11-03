@@ -1,0 +1,5 @@
+{% macro avatar(u, cls="") -%}
+<span class="avatar {{ cls }}{% if u.avatar %} has-photo{% endif %}" style="--av: {{ u.color }}">
+  {%- if u.avatar %}<img src="/media/{{ u.avatar }}" alt="">{% else %}{{ u.initial }}{% endif -%}
+</span>
+{%- endmacro %}

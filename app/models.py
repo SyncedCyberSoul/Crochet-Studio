@@ -49,6 +49,7 @@ class User(SQLModel, table=True):
     color: str = AVATAR_COLORS[0]
     password_hash: Optional[str] = None
     seen_version: int = 0  # newest "What's new" release this profile has seen; 0 = never opened
+    avatar: str = ""  # profile photo under media/avatars/ (shown on the picker, so it's public)
     created_at: datetime = Field(default_factory=utcnow)
 
     @property

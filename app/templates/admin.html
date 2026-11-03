@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_avatar.html" import avatar %}
 {% from "_icons.html" import icon %}
 {% block title %}Admin · Crochet Studio{% endblock %}
 {% block content %}
@@ -15,7 +16,7 @@
     {% for u in users %}
     <div class="admin-user" x-data="{ edit: false }">
       <div class="admin-user-row">
-        <span class="avatar" style="--av: {{ u.color }}">{{ u.initial }}</span>
+        {{ avatar(u) }}
         <div class="list-main">
           <h3>{{ u.name }} {% if u.has_password %}<span class="muted">{{ icon("lock", 14) }}</span>{% endif %}</h3>
           <p class="muted">
@@ -35,7 +36,7 @@
           <div class="swatches">
             {% for c in colors %}<label class="swatch" style="--av: {{ c }}"><input type="radio" name="color" value="{{ c }}" {% if c == u.color %}checked{% endif %}><span></span></label>{% endfor %}
           </div>
-          {% if u.has_password %}<label class="check"><input type="checkbox" name="clear_password" value="1"> Remove this profile's password</label>{% endif %}
+          {% if u.has_password %}<label class="check"><input type="checkbox" name="clear_password" value="1"> Reset: {{ u.name }} creates a new password next time they open the profile</label>{% else %}<p class="muted">No password yet. {{ u.name }} will be asked to create one when they open the profile, or you can set one above.</p>{% endif %}
           <div class="form-actions"><button class="btn btn-primary">Save {{ u.name }}</button></div>
         </form>
         <form method="post" action="/admin/users/{{ u.id }}/delete"
@@ -52,7 +53,7 @@
     <form method="post" action="/admin/users" class="form">
       <div class="row">
         <label class="field"><span>Name</span><input name="name" required maxlength="40"></label>
-        <label class="field"><span>Password <small class="muted">(optional)</small></span><input type="password" name="password" autocomplete="new-password"></label>
+        <label class="field"><span>Password <small class="muted">(at least 6 characters)</small></span><input type="password" name="password" required minlength="6" autocomplete="new-password"></label>
       </div>
       <div class="swatches">
         {% for c in colors %}<label class="swatch" style="--av: {{ c }}"><input type="radio" name="color" value="{{ c }}" {% if loop.index == 3 %}checked{% endif %}><span></span></label>{% endfor %}

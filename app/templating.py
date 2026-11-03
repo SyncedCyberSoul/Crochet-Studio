@@ -12,7 +12,9 @@ def _auth_context(request: Request) -> dict:
     user = getattr(request.state, "user", None)
     is_admin = getattr(request.state, "is_admin", False)
     # No popups while the admin is looking around someone else's studio.
-    popup, releases = popup_for(user) if not is_admin else ("", [])
+    # ...or before the profile has its password (the welcome waits until after).
+    setting_up = request.url.path in ("/set-password", "/set-photo")
+    popup, releases = popup_for(user) if not is_admin and user and user.has_password and not setting_up else ("", [])
     return {"current_user": user, "is_admin": is_admin, "popup": popup, "popup_releases": releases}
 
 

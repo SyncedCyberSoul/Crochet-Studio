@@ -1,10 +1,29 @@
 {% extends "base.html" %}
+{% from "_avatar.html" import avatar %}
 {% block title %}Your profile · Crochet Studio{% endblock %}
 {% block content %}
 <a href="/" class="back">← Projects</a>
 <h1>Your profile</h1>
 {% if saved %}<p class="alert ok">Saved.</p>{% endif %}
 {% if error %}<p class="alert">{{ error }}</p>{% endif %}
+
+<section class="panel photo-panel">
+  {{ avatar(user, "big") }}
+  <div>
+    <h2>Profile photo</h2>
+    <div class="actions wrap">
+      <form method="post" action="/me/photo" enctype="multipart/form-data">
+        <label class="btn btn-primary">
+          {{ "Change photo" if user.avatar else "Add a photo" }}
+          <input type="file" name="photo" accept="image/*" hidden onchange="this.form.submit()">
+        </label>
+      </form>
+      {% if user.avatar %}
+      <form method="post" action="/me/photo"><button class="btn btn-ghost-danger" name="remove" value="1">Remove photo</button></form>
+      {% endif %}
+    </div>
+  </div>
+</section>
 
 <form method="post" action="/me" class="form" x-data="{ action: 'keep' }">
   <label class="field"><span>Name</span><input name="name" value="{{ user.name }}" required maxlength="40"></label>
@@ -17,18 +36,14 @@
 
   <fieldset class="field">
     <legend>Password</legend>
-    <p class="muted">{{ "This profile has a password." if user.has_password else "No password: anyone using this app can open this profile." }}</p>
     <div class="segmented">
-      <label><input type="radio" name="password_action" value="keep" x-model="action"><span>Leave as is</span></label>
-      <label><input type="radio" name="password_action" value="set" x-model="action"><span>{{ "Change" if user.has_password else "Add one" }}</span></label>
-      {% if user.has_password %}<label><input type="radio" name="password_action" value="remove" x-model="action"><span>Remove</span></label>{% endif %}
+      <label><input type="radio" name="password_action" value="keep" x-model="action"><span>Keep my password</span></label>
+      <label><input type="radio" name="password_action" value="set" x-model="action"><span>Change it</span></label>
     </div>
   </fieldset>
-  {% if user.has_password %}
-  <label class="field" x-show="action !== 'keep'" x-cloak><span>Current password</span><input type="password" name="current" autocomplete="current-password"></label>
-  {% endif %}
+  <label class="field" x-show="action === 'set'" x-cloak><span>Current password</span><input type="password" name="current" autocomplete="current-password"></label>
   <div class="row" x-show="action === 'set'" x-cloak>
-    <label class="field"><span>New password</span><input type="password" name="new" autocomplete="new-password"></label>
+    <label class="field"><span>New password <small class="muted">(at least 6 characters)</small></span><input type="password" name="new" autocomplete="new-password"></label>
     <label class="field"><span>Type it again</span><input type="password" name="confirm" autocomplete="new-password"></label>
   </div>
 

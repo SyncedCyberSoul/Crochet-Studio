@@ -8,7 +8,10 @@ from sqlalchemy import func
 from sqlmodel import Session, select
 
 from .. import media
-from ..auth import check_password, get_setting, hash_password, is_local_request, read_session, set_setting, write_session
+from ..auth import (
+    MIN_PASSWORD, check_password, clear_failures, get_setting, hash_password, is_local_request, lock_message,
+    lock_remaining, read_session, record_failure, set_setting, write_session,
+)
 from ..db import get_session
 from ..deps import redirect
 from ..discover import DEFAULT_FEEDS, feed_list
@@ -54,13 +57,20 @@ async def setup(request: Request, session: Session = Depends(get_session)):
 @router.post("/login")
 async def login(request: Request, session: Session = Depends(get_session)):
     form = await request.form()
+    if wait := lock_remaining("admin"):
+        return templates.TemplateResponse(
+            request, "admin_login.html",
+            {"configured": True, "local": is_local_request(request), "error": lock_message(wait)}, status_code=429,
+        )
     if not check_password(str(form.get("password", "")), get_setting(session, ADMIN_KEY)):
+        record_failure("admin")
         await asyncio.sleep(0.8)
         return templates.TemplateResponse(
             request, "admin_login.html",
             {"configured": True, "local": is_local_request(request), "error": "Wrong admin password."},
             status_code=401,
         )
+    clear_failures("admin")
     response = redirect("/admin")
     write_session(request, response, {**read_session(request), "admin": True})
     return response
@@ -107,10 +117,11 @@ async def create_user(request: Request, session: Session = Depends(get_session))
     name = " ".join(str(form.get("name", "")).split())[:40]
     if not name or session.exec(select(User).where(User.name == name)).first():
         return redirect("/admin?error=" + ("Name+is+required" if not name else "That+name+is+taken"))
+    password = str(form.get("password", ""))
+    if len(password) < MIN_PASSWORD:
+        return redirect(f"/admin?error=New+profiles+need+a+password+of+at+least+{MIN_PASSWORD}+characters")
     user = User(name=name, color=str(form.get("color") or AVATAR_COLORS[0]),
-                seen_version=0 if name == WELCOME_PROFILE else LATEST)
-    if form.get("password"):
-        user.password_hash = hash_password(str(form["password"]))
+                seen_version=0 if name == WELCOME_PROFILE else LATEST, password_hash=hash_password(password))
     session.add(user)
     session.commit()
     return redirect("/admin?saved=Added+" + name)
@@ -128,9 +139,12 @@ async def update_user(request: Request, user_id: int, session: Session = Depends
     if form.get("color") in AVATAR_COLORS:
         user.color = str(form["color"])
     if form.get("clear_password"):
-        user.password_hash = None
+        user.password_hash = None  # they'll be asked to create a new one
     elif form.get("password"):
+        if len(str(form["password"])) < MIN_PASSWORD:
+            return redirect(f"/admin?error=Passwords+need+at+least+{MIN_PASSWORD}+characters")
         user.password_hash = hash_password(str(form["password"]))
+        clear_failures(f"user:{user.id}")
     session.commit()
     return redirect(f"/admin?saved=Saved+{user.name}")
 
@@ -147,6 +161,7 @@ def delete_user(user_id: int, session: Session = Depends(get_session)):
             session.delete(row)
     session.delete(user)
     session.commit()
+    media.delete_files(user.avatar)
     for folder in folders:
         media.delete_folder(folder)
     return redirect(f"/admin?saved=Deleted+{user.name}")

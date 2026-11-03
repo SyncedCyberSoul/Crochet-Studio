@@ -67,6 +67,25 @@ def save_image(data: bytes, subdir: str) -> StoredImage:
     return StoredImage(file=f"{subdir}/{stem}.jpg", thumb=f"{subdir}/{stem}_t.webp", taken_on=taken_on)
 
 
+AVATAR_PX = 256
+
+
+def save_avatar(data: bytes, user_id: int) -> str:
+    """Square, centred profile photo. A fresh name each time so browsers don't show a cached old one."""
+    try:
+        img = Image.open(io.BytesIO(data))
+        img.load()
+    except (UnidentifiedImageError, OSError) as exc:
+        raise NotAnImage(str(exc)) from exc
+    img = _to_rgb(ImageOps.exif_transpose(img))
+    img = ImageOps.fit(img, (AVATAR_PX, AVATAR_PX), Image.Resampling.LANCZOS, centering=(0.5, 0.4))
+    folder = settings.media_dir / "avatars"
+    folder.mkdir(parents=True, exist_ok=True)
+    name = f"{user_id}-{uuid.uuid4().hex[:8]}.webp"
+    img.save(folder / name, "WEBP", quality=86)
+    return f"avatars/{name}"
+
+
 def delete_files(*rel_paths: str) -> None:
     for rel in rel_paths:
         if rel:

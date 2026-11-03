@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% from "_avatar.html" import avatar %}
+{% block title %}Add your photo · Crochet Studio{% endblock %}
+{% block content %}
+<div class="narrow set-password" x-data="{ preview: null, busy: false }">
+  <div class="avatar-preview">
+    <template x-if="preview"><span class="avatar big has-photo"><img :src="preview" alt=""></span></template>
+    <template x-if="!preview">{{ avatar(user, "big") }}</template>
+  </div>
+  <h1>Add a photo for your profile</h1>
+  <p class="muted">It shows on the "Who's crocheting?" screen and at the top of every page. A selfie, your cat, your favourite yarn: anything goes.</p>
+  {% if error %}<p class="alert">{{ error }}</p>{% endif %}
+  <form method="post" action="/set-photo" enctype="multipart/form-data" class="form" @submit="busy = true">
+    <label class="btn btn-lg photo-choose">
+      Choose a photo
+      <input type="file" name="photo" accept="image/*" hidden required
+             @change="const f = $event.target.files[0]; preview = f ? URL.createObjectURL(f) : null">
+    </label>
+    <div class="form-actions" x-show="preview" x-cloak>
+      <button class="btn btn-primary btn-lg" :disabled="busy"><span x-text="busy ? 'Saving…' : 'Use this photo'"></span></button>
+    </div>
+  </form>
+  <a class="link-btn" href="/">Skip for now</a>
+</div>
+{% endblock %}
