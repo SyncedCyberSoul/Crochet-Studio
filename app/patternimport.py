@@ -23,7 +23,18 @@ JUNK = re.compile(r"^(advertisement|ad|pin it|save|print|share|tweet|jump to|ski
                   r"click here|subscribe|sign up|leave a comment|related|you may also like)\b", re.I)
 # Where a blog's sign-off starts: stop collecting finishing lines here.
 SIGNOFF = re.compile(r"(follow me|facebook|instagram|pinterest|youtube|tiktok|newsletter|subscribe|affiliate|"
-                     r"copyright|©|all rights reserved|looking for more|more patterns|share (it|this)|tag me|#\w)", re.I)
+                     r"copyright|©|all rights reserved|looking for more|more patterns|share (it|this)|tag me|#\w|"
+                     r"for more information|watch (the|my|how)|video|browse|you might also|check out)", re.I)
+# The foundation chain usually sits just above Row 1 without a row label: "Chain 50 for the medium size."
+FOUNDATION = re.compile(r"^(ch(ain)?|fsc|fdc|foundation)\b.*\d|^make a (magic|slip) (ring|knot)|^start with", re.I)
+# Headings that just say "here's the pattern"; not worth a section name.
+GENERIC_HEAD = re.compile(r"^(the )?(pattern|instructions|directions|crochet pattern|free pattern|let'?s (begin|start))\s*:?$", re.I)
+# Headings for the info before a pattern, not part of it.
+INFO_HEAD = re.compile(r"^(size chart|sizes?|stitches( used)?|abbreviations|materials|supplies|gauge|tension|notes?|"
+                       r"pattern notes|special stitches|skill level|level|finished size|measurements)\b", re.I)
+# Short finishing sections after the last row are part of the pattern too.
+FINISHING_HEAD = re.compile(r"^(to finish|finish(ing)?|assembly|assemble|making up|border|edging|sewing|"
+                            r"final touches|weave in)\b", re.I)
 HOOK_RE = re.compile(r"\b(\d{1,2}(?:\.\d{1,2})?)\s*mm\b", re.I)
 MATERIALS_HEAD = re.compile(r"^(materials|supplies|you will need|what you'?ll need|yarn|notions|tools)\b", re.I)
 MIN_ROWS = 3
@@ -114,13 +125,22 @@ def find_pattern(lines: list[str]) -> tuple[int, int] | None:
     if len(best) < MIN_ROWS:
         return None
     start, end = best[0], best[-1]
-    # Include the headings just before the first row ("HEAD", "Arms (make 2)", "Round 1 notes").
-    while start > 0 and best[0] - start < 4 and _is_section(lines[start - 1]):
+    # Include the foundation chain and headings just before the first row ("Chain 50…", "HEAD", "Arms (make 2)").
+    while (start > 0 and best[0] - start < 4 and not INFO_HEAD.match(lines[start - 1])
+           and (FOUNDATION.match(lines[start - 1]) or _is_section(lines[start - 1]))):
         start -= 1
-    # And the finishing lines just after ("Fasten off, leaving a long tail.").
-    while (end + 1 < len(lines) and end - best[-1] < 3 and len(lines[end + 1]) < 160
-           and not _is_section(lines[end + 1]) and not SIGNOFF.search(lines[end + 1])):
+    # And the finishing just after: "Fasten off…", or a short "To finish" / "Assembly" section.
+    extra, limit, finishing = 0, 3, False
+    while end + 1 < len(lines) and extra < limit:
+        nxt = lines[end + 1]
+        if SIGNOFF.search(nxt) or len(nxt) > 700:
+            break
+        if FINISHING_HEAD.match(nxt):
+            limit, finishing = extra + 7, True  # a finishing section gets a few more lines
+        elif _is_section(nxt) or (len(nxt) > 300 and not finishing):
+            break
         end += 1
+        extra += 1
     return start, end
 
 
@@ -142,7 +162,7 @@ def import_from_url(url: str, title_hint: str = "") -> Imported | None:
     if not span:
         return None
     start, end = span
-    text = "\n".join(l for l in lines[start:end + 1] if not SIGNOFF.search(l))
+    text = "\n".join(l for l in lines[start:end + 1] if not SIGNOFF.search(l) and not GENERIC_HEAD.match(l))
     steps = parse(text)
     if sum(1 for s in steps if s.label) < MIN_ROWS:
         return None
