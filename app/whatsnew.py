@@ -61,11 +61,15 @@ LATEST = RELEASES[-1].version
 
 
 def popup_for(user) -> tuple[str, list[Release]]:
-    """('welcome' | 'whatsnew' | '', releases to show) for this profile right now."""
+    """('welcome' | 'hello' | 'whatsnew' | '', releases to show) for this profile right now.
+
+    First open: the chosen profile gets the personal anniversary note; everyone else gets a general welcome.
+    Either way it's dismissed once (seen_version jumps to LATEST) and never shows again.
+    """
     if user is None:
         return "", []
     seen = user.seen_version or 0
     if seen == 0:
-        return ("welcome", []) if gets_welcome(user) else ("", [])
+        return ("welcome" if gets_welcome(user) else "hello"), []
     unseen = [r for r in RELEASES if r.version > seen]
     return ("whatsnew", unseen) if unseen else ("", [])

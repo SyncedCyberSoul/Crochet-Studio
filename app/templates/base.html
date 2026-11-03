@@ -97,6 +97,18 @@
         <p>Enjoy it!</p>
         <p class="signature">Made with love,<br><span>Christian</span></p>
         <button type="button" class="btn btn-primary btn-lg" @click="close()" x-init="$nextTick(() => $el.focus())">Let's start ♥</button>
+      {% elif popup == "hello" %}
+        <div class="welcome-art" aria-hidden="true"><img src="/static/yarn.svg" alt="" width="72" height="72"></div>
+        <h2 id="popup-title">Welcome to Crochet Studio, {{ current_user.name }}!</h2>
+        <p>Your own space for everything you're making. A quick tour:</p>
+        <ul class="whatsnew-list">
+          <li><strong>Projects:</strong> what's on your hook, what's next, and photos of everything you've finished.</li>
+          <li><strong>Patterns:</strong> paste one in and follow it a row at a time. It remembers your place and counts for you.</li>
+          <li><strong>Stash:</strong> your yarn and hooks, and whether you have enough yarn for a project.</li>
+          <li><strong>Ideas &amp; Discover:</strong> save inspiration from Pinterest or anywhere, and browse new patterns.</li>
+          <li>Tap the moon at the top for dark mode, and your circle for your profile and photo.</li>
+        </ul>
+        <button type="button" class="btn btn-primary btn-lg" @click="close()" x-init="$nextTick(() => $el.focus())">Let's go</button>
       {% else %}
         <p class="eyebrow">What's new</p>
         {% for r in popup_releases | reverse %}

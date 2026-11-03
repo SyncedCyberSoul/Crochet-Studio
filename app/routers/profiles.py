@@ -13,7 +13,7 @@ from ..db import get_session
 from ..deps import current_user, redirect
 from ..models import AVATAR_COLORS, User
 from ..templating import templates
-from ..whatsnew import LATEST, gets_welcome
+from ..whatsnew import LATEST
 
 router = APIRouter()
 
@@ -58,9 +58,6 @@ async def enter_profile(request: Request, user_id: int, session: Session = Depen
             await asyncio.sleep(0.6)  # slow down guessing
             return _picker(request, session, error_for=user.id, error="That password didn't match.", status=401)
         clear_failures(lock_key)
-    if not user.seen_version and not gets_welcome(user):
-        user.seen_version = LATEST  # a first visit isn't "new features"; only the welcome profile gets a note
-        session.commit()
     target = str(form.get("next") or "/")
     if not target.startswith("/") or target.startswith("//"):
         target = "/"  # only ever return to a page on this site
