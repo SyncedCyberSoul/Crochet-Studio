@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{% block title %}Who's crocheting? · Crochet Studio{% endblock %}
+{% block content %}
+<div class="profiles" x-data="{ picked: {{ (error_for or 'null') }}, adding: {{ 'true' if add_error else 'false' }} }">
+  <h1>Who's crocheting?</h1>
+  {% if error %}<p class="alert">{{ error }}</p>{% endif %}
+
+  <div class="profile-grid">
+    {% for u in users %}
+    <div class="profile-card" :class="{ open: picked === {{ u.id }} }">
+      {% if u.has_password %}
+        <button type="button" class="profile-pick" @click="picked = picked === {{ u.id }} ? null : {{ u.id }}; $nextTick(() => $refs.pw{{ u.id }}?.focus())">
+          <span class="avatar big" style="--av: {{ u.color }}">{{ u.initial }}</span>
+          <span class="profile-name">{{ u.name }}</span>
+          <span class="muted profile-lock">{{ icon("lock", 14) }} password</span>
+        </button>
+        <form method="post" action="/profiles/{{ u.id }}/enter" class="profile-pw" x-show="picked === {{ u.id }}" x-cloak>
+          <input type="hidden" name="next" value="{{ request.query_params.get('next', '/') }}">
+          <input type="password" name="password" x-ref="pw{{ u.id }}" placeholder="Password" autocomplete="current-password" aria-label="Password for {{ u.name }}">
+          <button class="btn btn-primary">Go</button>
+        </form>
+      {% else %}
+        <form method="post" action="/profiles/{{ u.id }}/enter">
+          <input type="hidden" name="next" value="{{ request.query_params.get('next', '/') }}">
+          <button class="profile-pick">
+            <span class="avatar big" style="--av: {{ u.color }}">{{ u.initial }}</span>
+            <span class="profile-name">{{ u.name }}</span>
+          </button>
+        </form>
+      {% endif %}
+    </div>
+    {% endfor %}
+
+    <div class="profile-card">
+      <button type="button" class="profile-pick" @click="adding = !adding">
+        <span class="avatar big add">{{ icon("plus", 40) }}</span>
+        <span class="profile-name">Add someone</span>
+      </button>
+    </div>
+  </div>
+
+  <form method="post" action="/profiles" class="panel add-profile" x-show="adding" x-cloak>
+    <h2>New profile</h2>
+    {% if add_error %}<p class="alert">{{ add_error }}</p>{% endif %}
+    <label class="field"><span>Name</span><input name="name" required maxlength="40" x-effect="adding && $nextTick(() => $el.focus())"></label>
+    <fieldset class="field">
+      <legend>Color</legend>
+      <div class="swatches">
+        {% for c in colors %}<label class="swatch" style="--av: {{ c }}"><input type="radio" name="color" value="{{ c }}" {% if loop.first %}checked{% endif %}><span></span></label>{% endfor %}
+      </div>
+    </fieldset>
+    <label class="field">
+      <span>Password <small class="muted">(optional: leave blank for none)</small></span>
+      <input type="password" name="password" autocomplete="new-password">
+    </label>
+    <div class="form-actions"><button class="btn btn-primary btn-lg">Create &amp; open</button></div>
+  </form>
+
+  <p class="made-by">Crochet Studio · made by Christian Pruitt</p>
+</div>
+{% endblock %}

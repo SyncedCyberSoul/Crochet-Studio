@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block title %}Following {{ pattern.title }} · Crochet Studio{% endblock %}
+{% block content %}
+<div class="follow" x-data='follow({{ state | tojson }})' @keydown.window="onKey($event)">
+  <div class="follow-head">
+    <a href="/projects/{{ project.id }}" class="back">← {{ project.name }}</a>
+    <span class="save-state" :class="saveState" x-text="saveLabel" aria-live="polite"></span>
+  </div>
+
+  <div class="progress" role="progressbar" :aria-valuenow="doneCount" aria-valuemin="0" :aria-valuemax="steps.length">
+    <div class="progress-bar" :style="`width: ${pct}%`"></div>
+  </div>
+  <p class="progress-text"><span x-text="doneCount"></span> of <span x-text="steps.length"></span> steps done · {{ pattern.title }}</p>
+
+  <template x-if="steps.length === 0">
+    <div class="empty"><p>This pattern has no steps yet.</p><a class="btn btn-primary" href="/patterns/{{ pattern.id }}/edit">Add steps</a></div>
+  </template>
+
+  <template x-if="step">
+    <section class="current-step" :class="{ 'is-done': step.done }">
+      <p class="cs-section" x-show="step.section" x-text="step.section"></p>
+      <div class="cs-top">
+        <h1 class="cs-label" x-text="step.label || ('Step ' + (idx + 1))"></h1>
+        <span class="cs-count" x-show="step.count" x-text="step.count + ' sts'"></span>
+      </div>
+      <p class="cs-text" x-text="step.text[terms]"></p>
+      <div class="cs-nav">
+        <button type="button" class="btn btn-lg" @click="go(idx - 1)" :disabled="idx === 0" aria-label="Previous step">←</button>
+        <button type="button" class="btn btn-primary btn-xl" @click="doneNext()">
+          <span x-text="step.done ? (idx < steps.length - 1 ? 'Next →' : 'All done!') : (idx < steps.length - 1 ? '✓ Done, next' : '✓ Finish')"></span>
+        </button>
+        <button type="button" class="btn btn-lg" @click="go(idx + 1)" :disabled="idx >= steps.length - 1" aria-label="Next step">→</button>
+      </div>
+    </section>
+  </template>
+
+  <section class="counters">
+    <div class="counter">
+      <p class="counter-name">Rows</p>
+      <p class="counter-value" x-text="rows"></p>
+      <div class="counter-btns">
+        <button type="button" class="btn counter-minus" @click="bump('rows', -1)" aria-label="Rows minus one">−</button>
+        <button type="button" class="btn btn-primary counter-plus" @click="bump('rows', 1)" aria-label="Rows plus one">+</button>
+      </div>
+      <button type="button" class="link-btn" @click="reset('rows')">Reset</button>
+    </div>
+    <div class="counter">
+      <p class="counter-name">Stitches</p>
+      <p class="counter-value" x-text="stitches"></p>
+      <div class="counter-btns">
+        <button type="button" class="btn counter-minus" @click="bump('stitches', -1)" aria-label="Stitches minus one">−</button>
+        <button type="button" class="btn btn-primary counter-plus" @click="bump('stitches', 1)" aria-label="Stitches plus one">+</button>
+      </div>
+      <button type="button" class="link-btn" @click="reset('stitches')">Reset</button>
+    </div>
+  </section>
+
+  <div class="follow-tools">
+    <div class="segmented small" role="group" aria-label="Crochet terms">
+      <label><input type="radio" value="us" x-model="terms" @change="rememberTerms()"><span>US terms</span></label>
+      <label><input type="radio" value="uk" x-model="terms" @change="rememberTerms()"><span>UK terms</span></label>
+    </div>
+    <label class="check" x-show="'wakeLock' in navigator">
+      <input type="checkbox" x-model="keepAwake" @change="setAwake()"> Keep screen on
+    </label>
+  </div>
+
+  <section class="panel">
+    <h2>All steps</h2>
+    <ol class="checklist">
+      <template x-for="(s, i) in steps" :key="s.id">
+        <li :class="{ current: i === idx, done: s.done }" :id="'step-' + s.id">
+          <p class="step-section" x-show="s.section && (i === 0 || steps[i - 1].section !== s.section)" x-text="s.section"></p>
+          <div class="check-row">
+            <button type="button" class="checkbox" :aria-pressed="s.done" @click="toggle(s)" :aria-label="(s.done ? 'Uncheck ' : 'Check off ') + (s.label || 'step ' + (i + 1))">
+              <span x-show="s.done">✓</span>
+            </button>
+            <button type="button" class="check-text" @click="go(i)">
+              <strong x-text="s.label"></strong> <span x-text="s.text[terms]"></span>
+              <span class="count" x-show="s.count" x-text="s.count + ' sts'"></span>
+            </button>
+          </div>
+        </li>
+      </template>
+    </ol>
+  </section>
+</div>
+{% endblock %}

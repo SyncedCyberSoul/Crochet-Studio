@@ -1,5 +1,9 @@
 {% extends "base.html" %}
 {% block content %}
+<div class="page-head">
+  <h1>{{ current_user.name }}'s projects</h1>
+  <a href="/projects/new" class="btn btn-primary">+ New project</a>
+</div>
 <form class="search" action="/" method="get" onsubmit="return false">
   <input type="search" name="q" value="{{ q }}" placeholder="Search projects, people, tags, notes…"
          autocomplete="off" aria-label="Search projects"

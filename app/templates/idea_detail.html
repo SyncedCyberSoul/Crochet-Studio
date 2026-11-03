@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}{{ idea.title }} · Crochet Studio{% endblock %}
+{% block content %}
+<a href="/ideas" class="back">← Ideas</a>
+{% if note %}<p class="alert">{{ note }}</p>{% endif %}
+
+<section class="hero">
+  {% if idea.image %}
+    <a class="hero-img natural" href="/media/{{ idea.image }}" target="_blank" rel="noopener"><img src="/media/{{ idea.image }}" alt="{{ idea.title }}"></a>
+  {% else %}
+    <div class="hero-img placeholder status-idea"><img src="/static/yarn.svg" alt=""></div>
+  {% endif %}
+  <div class="hero-info">
+    <span class="pill status-idea">Idea</span>
+    <h1>{{ idea.title }}</h1>
+    {% if idea.source_url %}<p><a href="{{ idea.source_url }}" target="_blank" rel="noopener">Open on {{ idea.source_host }} ↗</a></p>{% endif %}
+    {% if idea.tags %}<p class="chips">{% for t in idea.tags %}<a class="chip" href="/ideas?tag={{ t.name | urlencode }}">#{{ t.name }}</a>{% endfor %}</p>{% endif %}
+    <div class="actions wrap">
+      {% if project %}
+        <a class="btn btn-primary" href="/projects/{{ project.id }}">Go to project →</a>
+      {% else %}
+        <form method="post" action="/ideas/{{ idea.id }}/promote"><button class="btn btn-primary">Make it a project</button></form>
+      {% endif %}
+      {% if idea.image %}<a class="btn" href="/3d/new?idea={{ idea.id }}">Make 3D</a>{% endif %}
+      <a class="btn" href="/ideas/{{ idea.id }}/edit">Edit</a>
+    </div>
+  </div>
+</section>
+
+{% if idea.notes %}
+<section class="panel"><h2>Notes</h2><div class="notes">{{ idea.notes }}</div></section>
+{% endif %}
+
+<section class="danger-zone">
+  <form method="post" action="/ideas/{{ idea.id }}/delete" onsubmit="return confirm('Delete this idea?')">
+    <button class="btn btn-ghost-danger">Delete idea</button>
+  </form>
+</section>
+{% endblock %}

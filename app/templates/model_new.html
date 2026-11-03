@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}Make 3D · Crochet Studio{% endblock %}
+{% block content %}
+<a href="{{ '/projects/%d' % linked.id if linked else ('/ideas/%d' % idea.id if idea else '/3d') }}" class="back">← Back</a>
+<h1>Make 3D</h1>
+{% if error %}<p class="alert">{{ error }}</p>{% endif %}
+
+<section class="panel">
+  <h2>From a photo</h2>
+  <p class="muted">The piece is cut out of the photo and puffed up into a rounded shape you can spin. It works best with one piece that stands out from a plain-ish background.</p>
+  <form method="post" action="/3d/photo" enctype="multipart/form-data" class="form" x-data="{ busy: false }" @submit="busy = true">
+    {% if photos or idea %}
+    <fieldset class="field">
+      <legend>Pick a photo</legend>
+      <div class="photo-pick">
+        {% if idea and idea.image %}
+          <label><input type="radio" name="source" value="idea:{{ idea.id }}" checked><img src="/media/{{ idea.thumb or idea.image }}" alt=""></label>
+        {% endif %}
+        {% for ph in photos %}
+          <label><input type="radio" name="source" value="photo:{{ ph.id }}" {% if ph.is_cover and not idea %}checked{% endif %}><img src="/media/{{ ph.thumb }}" alt="{{ ph.caption }}"></label>
+        {% endfor %}
+      </div>
+    </fieldset>
+    {% endif %}
+    <label class="field">
+      <span>{{ "Or upload a different photo" if photos or idea else "Photo" }}</span>
+      <input type="file" name="photo" accept="image/*">
+    </label>
+    <div class="row">
+      <label class="field"><span>Name</span><input name="title" value="{{ (linked.name if linked else (idea.title if idea else '')) }}" placeholder="e.g. Ren's alien"></label>
+      <label class="field">
+        <span>Project</span>
+        <select name="project_id">
+          <option value="">None</option>
+          {% for p in projects %}<option value="{{ p.id }}" {% if linked and p.id == linked.id %}selected{% endif %}>{{ p.name }}</option>{% endfor %}
+        </select>
+      </label>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-primary btn-lg" :disabled="busy"><span x-text="busy ? 'Making it 3D…' : 'Make it 3D'"></span></button>
+    </div>
+  </form>
+</section>
+
+<section class="panel">
+  <h2>Open a 3D file</h2>
+  <p class="muted">Have a model from a 3D app or a 3D scan? GLB, STL and OBJ files work.</p>
+  <form method="post" action="/3d/upload" enctype="multipart/form-data" class="form">
+    <label class="field"><span>3D file</span><input type="file" name="model" accept=".glb,.stl,.obj" required></label>
+    <div class="row">
+      <label class="field"><span>Name</span><input name="title" placeholder="Name"></label>
+      <label class="field">
+        <span>Project</span>
+        <select name="project_id">
+          <option value="">None</option>
+          {% for p in projects %}<option value="{{ p.id }}" {% if linked and p.id == linked.id %}selected{% endif %}>{{ p.name }}</option>{% endfor %}
+        </select>
+      </label>
+    </div>
+    <div class="form-actions"><button class="btn btn-lg">Upload</button></div>
+  </form>
+</section>
+{% endblock %}

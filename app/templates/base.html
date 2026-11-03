@@ -1,31 +1,109 @@
+{% from "_icons.html" import icon %}
 <!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#faf5ee">
+  <meta name="theme-color" content="#faf5ee" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#1b1613" media="(prefers-color-scheme: dark)">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Crochet Studio">
   <title>{% block title %}Crochet Studio{% endblock %}</title>
   <link rel="icon" href="/static/yarn.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/static/yarn-180.png">
+  <script>try { var t = localStorage.getItem("theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}</script>
   <link rel="stylesheet" href="/static/style.css">
   <script src="/static/vendor/htmx.min.js" defer></script>
   <script src="/static/app.js" defer></script>
   <script src="/static/vendor/alpine.min.js" defer></script>
+  {% block head %}{% endblock %}
 </head>
-<body>
+{% set path = request.url.path %}
+{% macro navlink(href, label, ico) -%}
+  {% set active = (path == href) or (href != "/" and path.startswith(href)) or (href == "/" and path.startswith("/projects")) %}
+  <a href="{{ href }}" class="{% if active %}active{% endif %}" {% if active %}aria-current="page"{% endif %}>{{ icon(ico) }}<span>{{ label }}</span></a>
+{%- endmacro %}
+<body class="{% if current_user %}has-tabbar{% endif %}">
   <header class="topbar">
     <a href="/" class="brand">
       <img src="/static/yarn.svg" alt="" width="30" height="30">
-      <span>Crochet Studio</span>
+      <span class="brand-text">Crochet Studio<small>made by Christian Pruitt</small></span>
     </a>
-    <nav class="topnav">
-      <a href="/" class="{% if request.url.path == '/' %}active{% endif %}">Projects</a>
+    {% if current_user %}
+    <nav class="topnav" aria-label="Main">
+      {{ navlink("/", "Projects", "projects") }}
+      {{ navlink("/patterns", "Patterns", "patterns") }}
+      {{ navlink("/ideas", "Ideas", "ideas") }}
+      {{ navlink("/discover", "Discover", "discover") }}
+      {{ navlink("/3d", "3D", "cube") }}
     </nav>
-    {% block topbar_action %}
-    <a href="/projects/new" class="btn btn-primary btn-new">+ New project</a>
-    {% endblock %}
+    {% endif %}
+    <div class="topbar-right">
+      {% block topbar_action %}{% endblock %}
+      <button type="button" class="icon-btn" x-data @click="toggleTheme()" aria-label="Switch light or dark mode" title="Light / dark">
+        <span class="theme-icon-dark">{{ icon("moon") }}</span><span class="theme-icon-light">{{ icon("sun") }}</span>
+      </button>
+      {% if current_user %}
+      <div class="menu" x-data="{ open: false }" @click.outside="open = false" @keydown.escape="open = false">
+        <button type="button" class="avatar" style="--av: {{ current_user.color }}" @click="open = !open"
+                :aria-expanded="open" aria-label="Profile menu: {{ current_user.name }}">{{ current_user.initial }}</button>
+        <div class="menu-pop" x-show="open" x-transition.origin.top.right x-cloak>
+          <p class="menu-name">{{ current_user.name }}{% if is_admin %} <span class="pill admin-pill">admin view</span>{% endif %}</p>
+          <a href="/me">Profile &amp; password</a>
+          <a href="/profiles">Switch profile</a>
+          <form method="post" action="/logout"><button>Sign out</button></form>
+        </div>
+      </div>
+      {% endif %}
+    </div>
   </header>
+
+  {% if is_admin and current_user %}
+  <div class="admin-bar">{{ icon("shield", 16) }} Admin, viewing <strong>{{ current_user.name }}</strong>'s studio · <a href="/admin">Back to admin</a></div>
+  {% endif %}
+
   <main class="page">
     {% block content %}{% endblock %}
   </main>
+
+  <footer class="footer">
+    <a href="/admin" class="admin-link {% if is_admin %}on{% endif %}">{{ icon("shield", 15) }} {{ "Admin" if is_admin else "Admin logon" }}</a>
+  </footer>
+
+  {% if current_user %}
+  <nav class="tabbar" aria-label="Main">
+    {{ navlink("/", "Projects", "projects") }}
+    {{ navlink("/patterns", "Patterns", "patterns") }}
+    {{ navlink("/ideas", "Ideas", "ideas") }}
+    {{ navlink("/discover", "Discover", "discover") }}
+    {{ navlink("/3d", "3D", "cube") }}
+  </nav>
+  {% endif %}
+  {% if popup and current_user %}
+  <div class="modal-backdrop" x-data="{ open: true, close() { this.open = false; fetch('/whatsnew/seen', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }); } }"
+       x-show="open" x-transition.opacity @keydown.escape.window="close()" x-cloak>
+    <div class="modal {{ popup }}" role="dialog" aria-modal="true" aria-labelledby="popup-title" @click.outside="close()">
+      {% if popup == "welcome" %}
+        <div class="welcome-art" aria-hidden="true">
+          <img src="/static/yarn.svg" alt="" width="84" height="84"><span class="heart">♥</span>
+        </div>
+        <h2 id="popup-title">Welcome to your Crochet Studio, {{ current_user.name }}!</h2>
+        <p>A cozy home for every project, pattern and idea: what's on your hook, what's next, and everything you've made.</p>
+        <p class="welcome-big">Happy anniversary.</p>
+        <p>Enjoy it!</p>
+        <p class="signature">Made with love,<br><span>Christian</span></p>
+        <button type="button" class="btn btn-primary btn-lg" @click="close()" x-init="$nextTick(() => $el.focus())">Let's start ♥</button>
+      {% else %}
+        <p class="eyebrow">What's new</p>
+        {% for r in popup_releases | reverse %}
+          <h2 {% if loop.first %}id="popup-title"{% endif %}>{{ r.title }}</h2>
+          <ul class="whatsnew-list">{% for item in r.items %}<li>{{ item }}</li>{% endfor %}</ul>
+        {% endfor %}
+        <button type="button" class="btn btn-primary btn-lg" @click="close()" x-init="$nextTick(() => $el.focus())">Got it</button>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+  {% block scripts %}{% endblock %}
 </body>
 </html>

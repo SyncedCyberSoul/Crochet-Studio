@@ -2,7 +2,6 @@
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import RedirectResponse
 from sqlalchemy import func, or_
 from sqlalchemy.orm import selectinload
 from sqlmodel import Session, select
@@ -10,7 +9,11 @@ from starlette.datastructures import FormData, UploadFile
 
 from .. import media
 from ..db import get_session
-from ..models import DASHBOARD_ORDER, Project, ProjectPhoto, ProjectStatus, ProjectTagLink, Tag, utcnow
+from ..deps import current_user, owned, redirect
+from ..models import (
+    DASHBOARD_ORDER, Model3D, Pattern, Project, ProjectPhoto, ProjectStatus, ProjectTagLink, StepDone, Tag, User, utcnow,
+)
+from ..tags import parse_tags
 from ..templating import templates
 
 router = APIRouter()
@@ -18,32 +21,11 @@ router = APIRouter()
 TEXT_FIELDS = ("recipient", "hook_size", "gauge", "finished_size", "notes")
 
 
-def _redirect(url: str) -> RedirectResponse:
-    return RedirectResponse(url, status_code=303)
-
-
-def _get_project(session: Session, project_id: int) -> Project:
-    project = session.get(Project, project_id)
-    if not project:
-        raise HTTPException(404, "Project not found")
-    return project
-
-
 def _parse_date(value) -> Optional[date]:
     try:
         return date.fromisoformat(value) if value else None
     except ValueError:
         return None
-
-
-def _parse_tags(session: Session, raw: str) -> list[Tag]:
-    names = []
-    for part in raw.split(","):
-        name = " ".join(part.split()).lower()
-        if name and name not in names:
-            names.append(name)
-    existing = {t.name: t for t in session.exec(select(Tag).where(Tag.name.in_(names))).all()} if names else {}
-    return [existing.get(n) or Tag(name=n) for n in names]
 
 
 def _set_status(project: Project, status: ProjectStatus) -> None:
@@ -54,7 +36,7 @@ def _set_status(project: Project, status: ProjectStatus) -> None:
         project.finish_date = date.today()
 
 
-def _apply_form(session: Session, project: Project, form: FormData) -> None:
+def _apply_form(session: Session, project: Project, form: FormData, user: User) -> None:
     project.name = " ".join(str(form.get("name", "")).split()) or "Untitled project"
     for field in TEXT_FIELDS:
         setattr(project, field, str(form.get(field, "")).strip())
@@ -65,11 +47,14 @@ def _apply_form(session: Session, project: Project, form: FormData) -> None:
     except ValueError:
         status = ProjectStatus.idea
     _set_status(project, status)
-    project.tags = _parse_tags(session, str(form.get("tags", "")))
+    project.tags = parse_tags(session, str(form.get("tags", "")))
+    pattern_id = str(form.get("pattern_id") or "")
+    pattern = session.get(Pattern, int(pattern_id)) if pattern_id.isdigit() else None
+    project.pattern_id = pattern.id if pattern and pattern.user_id == user.id else None
     project.updated_at = utcnow()
 
 
-async def _save_photos(session: Session, project: Project, files: list) -> int:
+async def save_photos(project: Project, files: list) -> int:
     """Store uploaded photos; returns how many files were rejected."""
     rejected = 0
     for upload in files:
@@ -88,29 +73,46 @@ async def _save_photos(session: Session, project: Project, files: list) -> int:
     return rejected
 
 
-def _tag_options(session: Session) -> list[str]:
-    return list(session.exec(select(Tag.name).join(ProjectTagLink).distinct().order_by(Tag.name)).all())
+def _tag_options(session: Session, user: User) -> list[str]:
+    stmt = (select(Tag.name).join(ProjectTagLink).join(Project, Project.id == ProjectTagLink.project_id)
+            .where(Project.user_id == user.id).distinct().order_by(Tag.name))
+    return list(session.exec(stmt).all())
+
+
+def _form_context(session: Session, project: Project, user: User) -> dict:
+    patterns = session.exec(select(Pattern).where(Pattern.user_id == user.id).order_by(Pattern.title)).all()
+    return {
+        "project": project,
+        "tag_names": [t.name for t in project.tags],
+        "all_tags": _tag_options(session, user),
+        "patterns": patterns,
+    }
+
+
+def _after_save(project: Project, rejected: int, anchor: str = "") -> str:
+    return f"/projects/{project.id}" + (f"?rejected={rejected}" if rejected else "") + anchor
 
 
 # ---------- dashboard ----------
 
 @router.get("/")
-def dashboard(request: Request, q: str = "", tag: str = "", session: Session = Depends(get_session)):
+def dashboard(request: Request, q: str = "", tag: str = "",
+              user: User = Depends(current_user), session: Session = Depends(get_session)):
     q = q.strip()
-    stmt = select(Project).options(selectinload(Project.tags), selectinload(Project.photos))
+    mine = Project.user_id == user.id
+    stmt = select(Project).where(mine).options(selectinload(Project.tags), selectinload(Project.photos))
+    tag_project = select(ProjectTagLink.project_id).join(Tag, Tag.id == ProjectTagLink.tag_id)
     if q:
         like = f"%{q}%"
-        tag_hits = select(ProjectTagLink.project_id).join(Tag, Tag.id == ProjectTagLink.tag_id).where(Tag.name.ilike(like))
         stmt = stmt.where(or_(
             Project.name.ilike(like),
             Project.recipient.ilike(like),
             Project.notes.ilike(like),
             Project.hook_size.ilike(like),
-            Project.id.in_(tag_hits),
+            Project.id.in_(tag_project.where(Tag.name.ilike(like))),
         ))
     if tag:
-        tagged = select(ProjectTagLink.project_id).join(Tag, Tag.id == ProjectTagLink.tag_id).where(Tag.name == tag)
-        stmt = stmt.where(Project.id.in_(tagged))
+        stmt = stmt.where(Project.id.in_(tag_project.where(Tag.name == tag)))
     projects = session.exec(stmt.order_by(Project.updated_at.desc())).all()
 
     groups = {status: [] for status in DASHBOARD_ORDER}
@@ -119,9 +121,10 @@ def dashboard(request: Request, q: str = "", tag: str = "", session: Session = D
 
     tag_counts = session.exec(
         select(Tag.name, func.count(ProjectTagLink.project_id))
-        .join(ProjectTagLink).group_by(Tag.name).order_by(Tag.name)
+        .join(ProjectTagLink).join(Project, Project.id == ProjectTagLink.project_id)
+        .where(mine).group_by(Tag.name).order_by(Tag.name)
     ).all()
-    total = session.exec(select(func.count(Project.id))).one()
+    total = session.exec(select(func.count(Project.id)).where(mine)).one()
 
     context = {"groups": groups, "q": q, "tag": tag, "tag_counts": tag_counts, "found": len(projects), "total": total}
     is_htmx = request.headers.get("HX-Request") == "true"
@@ -131,58 +134,66 @@ def dashboard(request: Request, q: str = "", tag: str = "", session: Session = D
 # ---------- create / edit ----------
 
 @router.get("/projects/new")
-def new_project(request: Request, status: str = "planned", session: Session = Depends(get_session)):
+def new_project(request: Request, status: str = "planned", pattern: int = 0,
+                user: User = Depends(current_user), session: Session = Depends(get_session)):
     try:
         initial = ProjectStatus(status)
     except ValueError:
         initial = ProjectStatus.planned
-    project = Project(name="", status=initial)
-    return templates.TemplateResponse(
-        request, "project_form.html", {"project": project, "tag_names": [], "all_tags": _tag_options(session)}
-    )
+    project = Project(name="", status=initial, pattern_id=pattern or None)
+    linked = session.get(Pattern, pattern) if pattern else None
+    if linked and linked.user_id == user.id:
+        project.name = linked.title
+    return templates.TemplateResponse(request, "project_form.html", _form_context(session, project, user))
 
 
 @router.post("/projects")
-async def create_project(request: Request, session: Session = Depends(get_session)):
+async def create_project(request: Request, user: User = Depends(current_user), session: Session = Depends(get_session)):
     form = await request.form()
-    project = Project(name="")
-    _apply_form(session, project, form)
+    project = Project(name="", user_id=user.id)
+    _apply_form(session, project, form, user)
     session.add(project)
     session.flush()  # need the id for the photo folder
-    rejected = await _save_photos(session, project, form.getlist("photos"))
+    rejected = await save_photos(project, form.getlist("photos"))
     session.commit()
-    return _redirect(f"/projects/{project.id}" + (f"?rejected={rejected}" if rejected else ""))
+    return redirect(_after_save(project, rejected))
 
 
 @router.get("/projects/{project_id}")
-def project_detail(request: Request, project_id: int, rejected: int = 0, session: Session = Depends(get_session)):
-    project = _get_project(session, project_id)
-    return templates.TemplateResponse(request, "project_detail.html", {"project": project, "rejected": rejected})
+def project_detail(request: Request, project_id: int, rejected: int = 0,
+                   user: User = Depends(current_user), session: Session = Depends(get_session)):
+    project = owned(session, Project, project_id, user)
+    pattern = session.get(Pattern, project.pattern_id) if project.pattern_id else None
+    done = 0
+    if pattern:
+        done = session.exec(select(func.count()).select_from(StepDone).where(StepDone.project_id == project.id)).one()
+    models = session.exec(select(Model3D).where(Model3D.project_id == project.id)).all()
+    return templates.TemplateResponse(request, "project_detail.html", {
+        "project": project, "rejected": rejected, "pattern": pattern, "steps_done": done, "models": models,
+    })
 
 
 @router.get("/projects/{project_id}/edit")
-def edit_project(request: Request, project_id: int, session: Session = Depends(get_session)):
-    project = _get_project(session, project_id)
-    return templates.TemplateResponse(
-        request,
-        "project_form.html",
-        {"project": project, "tag_names": [t.name for t in project.tags], "all_tags": _tag_options(session)},
-    )
+def edit_project(request: Request, project_id: int, user: User = Depends(current_user), session: Session = Depends(get_session)):
+    project = owned(session, Project, project_id, user)
+    return templates.TemplateResponse(request, "project_form.html", _form_context(session, project, user))
 
 
 @router.post("/projects/{project_id}")
-async def update_project(request: Request, project_id: int, session: Session = Depends(get_session)):
-    project = _get_project(session, project_id)
+async def update_project(request: Request, project_id: int,
+                         user: User = Depends(current_user), session: Session = Depends(get_session)):
+    project = owned(session, Project, project_id, user)
     form = await request.form()
-    _apply_form(session, project, form)
-    rejected = await _save_photos(session, project, form.getlist("photos"))
+    _apply_form(session, project, form, user)
+    rejected = await save_photos(project, form.getlist("photos"))
     session.commit()
-    return _redirect(f"/projects/{project.id}" + (f"?rejected={rejected}" if rejected else ""))
+    return redirect(_after_save(project, rejected))
 
 
 @router.post("/projects/{project_id}/status")
-async def change_status(request: Request, project_id: int, session: Session = Depends(get_session)):
-    project = _get_project(session, project_id)
+async def change_status(request: Request, project_id: int,
+                        user: User = Depends(current_user), session: Session = Depends(get_session)):
+    project = owned(session, Project, project_id, user)
     form = await request.form()
     try:
         _set_status(project, ProjectStatus(form.get("status")))
@@ -190,58 +201,62 @@ async def change_status(request: Request, project_id: int, session: Session = De
         raise HTTPException(400, "Unknown status")
     project.updated_at = utcnow()
     session.commit()
-    return _redirect(f"/projects/{project.id}")
+    return redirect(f"/projects/{project.id}")
 
 
 @router.post("/projects/{project_id}/delete")
-def delete_project(project_id: int, session: Session = Depends(get_session)):
-    project = _get_project(session, project_id)
+def delete_project(project_id: int, user: User = Depends(current_user), session: Session = Depends(get_session)):
+    project = owned(session, Project, project_id, user)
+    for model in session.exec(select(Model3D).where(Model3D.project_id == project.id)).all():
+        model.project_id = None
     session.delete(project)
     session.commit()
     media.delete_folder(f"projects/{project_id}")
-    return _redirect("/")
+    return redirect("/")
 
 
 # ---------- photos ----------
 
 @router.post("/projects/{project_id}/photos")
-async def add_photos(request: Request, project_id: int, session: Session = Depends(get_session)):
-    project = _get_project(session, project_id)
+async def add_photos(request: Request, project_id: int,
+                     user: User = Depends(current_user), session: Session = Depends(get_session)):
+    project = owned(session, Project, project_id, user)
     form = await request.form()
-    rejected = await _save_photos(session, project, form.getlist("photos"))
+    rejected = await save_photos(project, form.getlist("photos"))
     project.updated_at = utcnow()
     session.commit()
-    return _redirect(f"/projects/{project.id}" + (f"?rejected={rejected}" if rejected else "") + "#photos")
+    return redirect(_after_save(project, rejected, "#photos"))
 
 
-def _get_photo(session: Session, photo_id: int) -> ProjectPhoto:
+def _get_photo(session: Session, photo_id: int, user: User) -> ProjectPhoto:
     photo = session.get(ProjectPhoto, photo_id)
-    if not photo:
+    if not photo or photo.project.user_id != user.id:
         raise HTTPException(404, "Photo not found")
     return photo
 
 
 @router.post("/photos/{photo_id}/cover")
-def set_cover(photo_id: int, session: Session = Depends(get_session)):
-    photo = _get_photo(session, photo_id)
+def set_cover(photo_id: int, user: User = Depends(current_user), session: Session = Depends(get_session)):
+    photo = _get_photo(session, photo_id, user)
     for p in photo.project.photos:
         p.is_cover = p.id == photo.id
     session.commit()
-    return _redirect(f"/projects/{photo.project_id}#photos")
+    return redirect(f"/projects/{photo.project_id}#photos")
 
 
 @router.post("/photos/{photo_id}/caption")
-async def set_caption(request: Request, photo_id: int, session: Session = Depends(get_session)):
-    photo = _get_photo(session, photo_id)
+async def set_caption(request: Request, photo_id: int,
+                      user: User = Depends(current_user), session: Session = Depends(get_session)):
+    photo = _get_photo(session, photo_id, user)
     form = await request.form()
     photo.caption = str(form.get("caption", "")).strip()
     session.commit()
-    return _redirect(f"/projects/{photo.project_id}#photos")
+    return redirect(f"/projects/{photo.project_id}#photos")
 
 
 @router.post("/photos/{photo_id}/delete")
-def delete_photo(photo_id: int, session: Session = Depends(get_session)):
-    photo = _get_photo(session, photo_id)
+def delete_photo(photo_id: int, user: User = Depends(current_user), session: Session = Depends(get_session)):
+    photo = _get_photo(session, photo_id, user)
     project = photo.project
     was_cover = photo.is_cover
     files = (photo.file, photo.thumb)
@@ -250,4 +265,4 @@ def delete_photo(photo_id: int, session: Session = Depends(get_session)):
         project.photos[0].is_cover = True
     session.commit()
     media.delete_files(*files)
-    return _redirect(f"/projects/{project.id}#photos")
+    return redirect(f"/projects/{project.id}#photos")

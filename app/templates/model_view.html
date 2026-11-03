@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}{{ model.title }} · 3D · Crochet Studio{% endblock %}
+{% block head %}
+<script type="importmap">
+  { "imports": { "three": "/static/vendor/three/three.module.min.js", "three/addons/": "/static/vendor/three/addons/" } }
+</script>
+{% endblock %}
+{% block content %}
+<a href="{{ '/projects/%d#models' % project.id if project else '/3d' }}" class="back">← {{ project.name if project else "3D" }}</a>
+<div class="page-head">
+  <h1>{{ model.title }}</h1>
+</div>
+{% if card %}<p class="alert">Couldn't find one clear piece in that photo, so the whole picture became a raised card. A photo against a plainer background gives a cut-out model.</p>{% endif %}
+
+<div class="viewer-wrap">
+  <div id="viewer" class="viewer"
+       data-kind="{{ model.kind }}" data-file="/media/{{ model.file }}"
+       data-depth="{{ '/media/' ~ model.depth if model.depth else '' }}"
+       data-thumb-url="{{ '' if model.thumb else '/3d/%d/thumb' % model.id }}">
+    <p class="viewer-msg">Loading 3D…</p>
+  </div>
+  <div class="viewer-tools">
+    <button type="button" class="btn btn-sm" data-action="spin" aria-pressed="true">⟳ Auto-spin</button>
+    <button type="button" class="btn btn-sm" data-action="reset">Reset view</button>
+    {% if model.kind == "photo" %}
+    <label class="slider">Puffiness <input type="range" min="0.2" max="2" step="0.05" value="1" data-action="puff"></label>
+    {% endif %}
+  </div>
+  <p class="muted center">Drag to spin · pinch or scroll to zoom</p>
+</div>
+
+<section class="panel">
+  <h2>Details</h2>
+  <form method="post" action="/3d/{{ model.id }}/details" class="form">
+    <div class="row">
+      <label class="field"><span>Name</span><input name="title" value="{{ model.title }}"></label>
+      <label class="field">
+        <span>Project</span>
+        <select name="project_id">
+          <option value="">None</option>
+          {% for p in projects %}<option value="{{ p.id }}" {% if p.id == model.project_id %}selected{% endif %}>{{ p.name }}</option>{% endfor %}
+        </select>
+      </label>
+    </div>
+    <div class="form-actions"><button class="btn">Save</button></div>
+  </form>
+</section>
+
+<section class="danger-zone">
+  <form method="post" action="/3d/{{ model.id }}/delete" onsubmit="return confirm('Delete this 3D model?')">
+    <button class="btn btn-ghost-danger">Delete 3D model</button>
+  </form>
+</section>
+{% endblock %}
+{% block scripts %}<script type="module" src="/static/viewer.js"></script>{% endblock %}

@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{% block title %}Admin · Crochet Studio{% endblock %}
+{% block content %}
+<div class="narrow">
+  <a href="/" class="back">← Back</a>
+  <h1>{{ icon("shield") }} Admin logon</h1>
+  {% if error %}<p class="alert">{{ error }}</p>{% endif %}
+
+  {% if configured %}
+  <form method="post" action="/admin/login" class="form">
+    <label class="field"><span>Admin password</span><input type="password" name="password" required autofocus autocomplete="current-password"></label>
+    <div class="form-actions"><button class="btn btn-primary btn-lg">Log on</button></div>
+  </form>
+  {% elif local %}
+  <p class="muted">No admin password yet. Choose one now. You'll use it to manage profiles, reset their passwords and edit the Discover feeds.</p>
+  <form method="post" action="/admin/setup" class="form">
+    <label class="field"><span>New admin password</span><input type="password" name="password" required minlength="6" autofocus autocomplete="new-password"></label>
+    <label class="field"><span>Type it again</span><input type="password" name="confirm" required minlength="6" autocomplete="new-password"></label>
+    <div class="form-actions"><button class="btn btn-primary btn-lg">Set admin password</button></div>
+  </form>
+  {% else %}
+  <p class="alert">The admin password hasn't been set yet. For safety, it can only be set from a browser on the computer running Crochet Studio. Open <strong>http://localhost:8000/admin</strong> there.</p>
+  {% endif %}
+</div>
+{% endblock %}

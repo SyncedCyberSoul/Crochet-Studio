@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Patterns · Crochet Studio{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>Patterns</h1>
+  <a href="/patterns/new" class="btn btn-primary">+ Add pattern</a>
+</div>
+
+{% if not patterns %}
+<div class="empty">
+  <img src="/static/yarn.svg" alt="" width="72" height="72">
+  <h2>No patterns yet</h2>
+  <p>Paste a pattern's text and it gets split into rows you can check off as you go. You can attach the PDF too.</p>
+  <a href="/patterns/new" class="btn btn-primary btn-lg">+ Add your first pattern</a>
+</div>
+{% else %}
+<div class="list">
+  {% for p in patterns %}
+  <a class="list-row" href="/patterns/{{ p.id }}">
+    <div class="list-icon">{% if p.pdf_file %}PDF{% else %}<img src="/static/yarn.svg" alt="" width="26">{% endif %}</div>
+    <div class="list-main">
+      <h3>{{ p.title }}</h3>
+      <p class="muted">
+        {% if p.designer %}by {{ p.designer }} · {% endif %}{{ step_counts.get(p.id, 0) }} steps · {{ p.terms | upper }} terms
+        {% if p.difficulty %} · {{ p.difficulty }}{% endif %}
+      </p>
+    </div>
+    {% if used.get(p.id) %}<span class="pill status-in_progress">{{ used[p.id] | length }} project{{ 's' if used[p.id] | length > 1 }}</span>{% endif %}
+  </a>
+  {% endfor %}
+</div>
+{% endif %}
+{% endblock %}

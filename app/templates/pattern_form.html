@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% set editing = pattern.id is not none %}
+{% block title %}{{ "Edit " ~ pattern.title if editing else "New pattern" }} · Crochet Studio{% endblock %}
+{% block content %}
+<a href="{{ '/patterns/%d' % pattern.id if editing else '/patterns' }}" class="back">← {{ "Back to pattern" if editing else "Patterns" }}</a>
+<h1>{{ "Edit pattern" if editing else "New pattern" }}</h1>
+{% if error %}<p class="alert">{{ error }}</p>{% endif %}
+
+<form method="post" action="{{ '/patterns/%d' % pattern.id if editing else '/patterns' }}" enctype="multipart/form-data"
+      class="form form-wide" x-data='stepsEditor({{ steps | tojson }}, {{ ("pattern-draft-" ~ (pattern.id or "new")) | tojson }})'
+      @submit="clearDraft()" @input.debounce.800ms="saveDraft()">
+
+  <template x-if="draftFound">
+    <div class="alert draft-alert">
+      <span>You have unsaved changes from <span x-text="draftAge"></span>.</span>
+      <button type="button" class="btn btn-sm btn-primary" @click="restoreDraft()">Restore them</button>
+      <button type="button" class="btn btn-sm" @click="discardDraft()">Discard</button>
+    </div>
+  </template>
+
+  <label class="field">
+    <span>Pattern name</span>
+    <input name="title" value="{{ pattern.title }}" required placeholder="e.g. Little alien amigurumi" {% if not editing %}autofocus{% endif %}>
+  </label>
+  <div class="row">
+    <label class="field"><span>Designer</span><input name="designer" value="{{ pattern.designer }}" placeholder="Who wrote it"></label>
+    <label class="field"><span>Link</span><input name="source_url" type="url" value="{{ pattern.source_url }}" placeholder="https://…"></label>
+  </div>
+  <div class="row">
+    <label class="field">
+      <span>Difficulty</span>
+      <select name="difficulty">
+        {% for d in difficulties %}<option value="{{ d }}" {% if d == pattern.difficulty %}selected{% endif %}>{{ d or "—" }}</option>{% endfor %}
+      </select>
+    </label>
+    <fieldset class="field">
+      <legend>Written in</legend>
+      <div class="segmented">
+        <label><input type="radio" name="terms" value="us" {% if pattern.terms != 'uk' %}checked{% endif %}><span>US terms</span></label>
+        <label><input type="radio" name="terms" value="uk" {% if pattern.terms == 'uk' %}checked{% endif %}><span>UK terms</span></label>
+      </div>
+    </fieldset>
+  </div>
+
+  <label class="field">
+    <span>PDF {% if pattern.pdf_file %}<small class="muted">(attached. Choose a file to replace it)</small>{% endif %}</span>
+    <input type="file" name="pdf" accept="application/pdf">
+  </label>
+  {% if pattern.pdf_file %}
+  <label class="check"><input type="checkbox" name="remove_pdf" value="1"> Remove the attached PDF</label>
+  {% endif %}
+
+  <section class="panel steps-panel">
+    <h2>Steps</h2>
+    <p class="muted">Paste the written pattern below and tap <strong>Split into steps</strong>. Each row or round becomes a step she can check off. Fix anything that split oddly before saving.</p>
+    <label class="field">
+      <span class="sr-only">Pattern text</span>
+      <textarea name="raw_text" x-ref="raw" rows="8" placeholder="Rnd 1: 6 sc in magic ring (6)&#10;Rnd 2: inc around (12)&#10;Rnds 3-5: sc around (12)">{{ pattern.raw_text }}</textarea>
+    </label>
+    <div class="steps-tools">
+      <button type="button" class="btn btn-primary" @click="split()" :disabled="busy">
+        <span x-text="busy ? 'Splitting…' : 'Split into steps'"></span>
+      </button>
+      <label class="check"><input type="checkbox" x-model="expand"> Spread ranges like "Rnds 3-5" into one step per round</label>
+    </div>
+    <p class="alert" x-show="message" x-text="message" x-cloak></p>
+
+    <input type="hidden" name="steps_json" :value="json">
+    <ol class="step-edit-list" x-show="steps.length" x-cloak>
+      <template x-for="(s, i) in steps" :key="s.key">
+        <li class="step-edit">
+          <div class="step-edit-top">
+            <input class="se-section" x-model="s.section" placeholder="Section" aria-label="Section">
+            <input class="se-label" x-model="s.label" placeholder="Rnd 1" aria-label="Row or round">
+            <input class="se-count" x-model="s.stitch_count" inputmode="numeric" placeholder="sts" aria-label="Stitch count">
+          </div>
+          <textarea x-model="s.text" rows="2" aria-label="Step text"></textarea>
+          <div class="step-edit-actions">
+            <button type="button" class="btn btn-sm" @click="move(i, -1)" :disabled="i === 0" aria-label="Move up">↑</button>
+            <button type="button" class="btn btn-sm" @click="move(i, 1)" :disabled="i === steps.length - 1" aria-label="Move down">↓</button>
+            <button type="button" class="btn btn-sm" @click="add(i)">+ Step below</button>
+            <button type="button" class="btn btn-sm btn-ghost-danger" @click="remove(i)">Remove</button>
+          </div>
+        </li>
+      </template>
+    </ol>
+    <button type="button" class="btn" @click="add(steps.length - 1)">+ Add a step</button>
+    <p class="muted" x-show="steps.length" x-text="steps.length + ' steps'"></p>
+  </section>
+
+  <label class="field">
+    <span>Notes</span>
+    <textarea name="notes" rows="3" placeholder="Yarn, hook, changes you made…">{{ pattern.notes }}</textarea>
+  </label>
+
+  <div class="form-actions">
+    <button class="btn btn-primary btn-lg">{{ "Save pattern" if editing else "Create pattern" }}</button>
+    <a class="btn btn-lg" href="{{ '/patterns/%d' % pattern.id if editing else '/patterns' }}">Cancel</a>
+  </div>
+</form>
+{% endblock %}

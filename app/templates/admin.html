@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{% block title %}Admin · Crochet Studio{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>{{ icon("shield") }} Admin</h1>
+  <form method="post" action="/admin/logout"><button class="btn">Log off admin</button></form>
+</div>
+{% if saved %}<p class="alert ok">{{ saved }}</p>{% endif %}
+{% if error %}<p class="alert">{{ error }}</p>{% endif %}
+
+<section class="panel">
+  <h2>Profiles</h2>
+  <div class="admin-users">
+    {% for u in users %}
+    <div class="admin-user" x-data="{ edit: false }">
+      <div class="admin-user-row">
+        <span class="avatar" style="--av: {{ u.color }}">{{ u.initial }}</span>
+        <div class="list-main">
+          <h3>{{ u.name }} {% if u.has_password %}<span class="muted">{{ icon("lock", 14) }}</span>{% endif %}</h3>
+          <p class="muted">
+            {{ counts.projects.get(u.id, 0) }} projects · {{ counts.patterns.get(u.id, 0) }} patterns ·
+            {{ counts.ideas.get(u.id, 0) }} ideas · {{ counts.models.get(u.id, 0) }} 3D
+          </p>
+        </div>
+        <form method="post" action="/admin/users/{{ u.id }}/view"><button class="btn btn-primary btn-sm">Open</button></form>
+        <button type="button" class="btn btn-sm" @click="edit = !edit">Manage</button>
+      </div>
+      <div x-show="edit" x-cloak class="admin-user-edit">
+        <form method="post" action="/admin/users/{{ u.id }}/update" class="form">
+          <div class="row">
+            <label class="field"><span>Name</span><input name="name" value="{{ u.name }}" maxlength="40"></label>
+            <label class="field"><span>New password <small class="muted">(blank = keep)</small></span><input type="password" name="password" autocomplete="new-password"></label>
+          </div>
+          <div class="swatches">
+            {% for c in colors %}<label class="swatch" style="--av: {{ c }}"><input type="radio" name="color" value="{{ c }}" {% if c == u.color %}checked{% endif %}><span></span></label>{% endfor %}
+          </div>
+          {% if u.has_password %}<label class="check"><input type="checkbox" name="clear_password" value="1"> Remove this profile's password</label>{% endif %}
+          <div class="form-actions"><button class="btn btn-primary">Save {{ u.name }}</button></div>
+        </form>
+        <form method="post" action="/admin/users/{{ u.id }}/delete"
+              onsubmit="return confirm('Delete {{ u.name | replace("'", "") }} and ALL of their projects, patterns, ideas and photos? This can’t be undone.')">
+          <button class="btn btn-ghost-danger">Delete profile and everything in it</button>
+        </form>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <details class="add-details">
+    <summary class="btn">+ Add a profile</summary>
+    <form method="post" action="/admin/users" class="form">
+      <div class="row">
+        <label class="field"><span>Name</span><input name="name" required maxlength="40"></label>
+        <label class="field"><span>Password <small class="muted">(optional)</small></span><input type="password" name="password" autocomplete="new-password"></label>
+      </div>
+      <div class="swatches">
+        {% for c in colors %}<label class="swatch" style="--av: {{ c }}"><input type="radio" name="color" value="{{ c }}" {% if loop.index == 3 %}checked{% endif %}><span></span></label>{% endfor %}
+      </div>
+      <div class="form-actions"><button class="btn btn-primary">Add profile</button></div>
+    </form>
+  </details>
+</section>
+
+<section class="panel">
+  <h2>Discover feeds</h2>
+  <p class="muted">One per line: <code>Name | feed URL</code>. Blog feeds usually end in <code>/feed</code>. A Pinterest board works too: <code>https://www.pinterest.com/USER/BOARD.rss</code>. Clear the box and save to go back to the {{ default_feed_count }} default feeds.</p>
+  <form method="post" action="/admin/feeds" class="form form-wide">
+    <textarea name="feeds" rows="9" spellcheck="false" class="mono">{{ feeds_text }}</textarea>
+    <div class="form-actions"><button class="btn btn-primary">Save feeds</button></div>
+  </form>
+</section>
+
+<section class="panel">
+  <h2>Admin password</h2>
+  <form method="post" action="/admin/password" class="form">
+    <label class="field"><span>Current</span><input type="password" name="current" required autocomplete="current-password"></label>
+    <div class="row">
+      <label class="field"><span>New</span><input type="password" name="new" required minlength="6" autocomplete="new-password"></label>
+      <label class="field"><span>Again</span><input type="password" name="confirm" required minlength="6" autocomplete="new-password"></label>
+    </div>
+    <div class="form-actions"><button class="btn">Change admin password</button></div>
+  </form>
+</section>
+{% endblock %}

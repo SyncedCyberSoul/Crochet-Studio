@@ -1,0 +1,15 @@
+{% if error %}<p class="alert">{{ error }}</p>{% endif %}
+{% if preview %}
+  {% if preview.image %}
+    <img class="idea-preview-img" src="{{ preview.image }}" alt="" referrerpolicy="no-referrer">
+    <input type="hidden" name="image_url" value="{{ preview.image }}">
+  {% endif %}
+  {# Fill in the title/notes only if she hasn't typed her own. #}
+  <script>
+    (() => {
+      const t = document.getElementById('idea-title'), n = document.getElementById('idea-notes');
+      if (t && !t.value) t.value = {{ preview.title | tojson }};
+      if (n && !n.value) n.value = {{ preview.description | tojson }};
+    })();
+  </script>
+{% endif %}

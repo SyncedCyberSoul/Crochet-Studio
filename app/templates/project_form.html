@@ -28,7 +28,7 @@
 
   <label class="field">
     <span>Who it's for</span>
-    <input name="recipient" value="{{ project.recipient }}" placeholder="Me, Mom, baby Theo…">
+    <input name="recipient" value="{{ project.recipient }}" placeholder="Me, a friend, family…">
   </label>
 
   <div class="row">
@@ -53,6 +53,15 @@
       <input name="gauge" value="{{ project.gauge }}" placeholder="14 sc × 16 rows = 4 in">
     </label>
   </div>
+
+  <label class="field">
+    <span>Pattern</span>
+    <select name="pattern_id">
+      <option value="">None</option>
+      {% for pt in patterns %}<option value="{{ pt.id }}" {% if pt.id == project.pattern_id %}selected{% endif %}>{{ pt.title }}</option>{% endfor %}
+    </select>
+    <small class="muted">Link a pattern to follow it step by step. <a href="/patterns/new">Add a pattern</a></small>
+  </label>
 
   <label class="field">
     <span>Finished size</span>

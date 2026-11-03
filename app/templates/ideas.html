@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Ideas · Crochet Studio{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>Ideas</h1>
+  <div class="actions">
+    <a href="/discover" class="btn">Find ideas</a>
+    <a href="/ideas/new" class="btn btn-primary">+ Save an idea</a>
+  </div>
+</div>
+
+<form class="search" action="/ideas" method="get">
+  <input type="search" name="q" value="{{ q }}" placeholder="Search your ideas…" aria-label="Search ideas">
+  {% if tag %}<input type="hidden" name="tag" value="{{ tag }}">{% endif %}
+</form>
+{% if tags %}
+<div class="chips">
+  {% for t in tags %}
+  <a class="chip {% if t == tag %}active{% endif %}" href="/ideas?{% if q %}q={{ q | urlencode }}&{% endif %}{% if t != tag %}tag={{ t | urlencode }}{% endif %}">#{{ t }}</a>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if not ideas %}
+<div class="empty">
+  <img src="/static/yarn.svg" alt="" width="72" height="72">
+  {% if q or tag %}
+    <h2>Nothing matches</h2><p><a href="/ideas">Show all ideas</a></p>
+  {% else %}
+    <h2>Your idea board is empty</h2>
+    <p>Paste a Pinterest pin or any link, snap a photo, or browse Discover for inspiration.</p>
+    <a href="/ideas/new" class="btn btn-primary btn-lg">+ Save your first idea</a>
+  {% endif %}
+</div>
+{% else %}
+<div class="masonry">
+  {% for i in ideas %}
+  <a class="pin" href="/ideas/{{ i.id }}">
+    {% if i.image %}<img src="/media/{{ i.image }}" alt="" loading="lazy">{% else %}<div class="placeholder status-idea pin-ph"><img src="/static/yarn.svg" alt=""></div>{% endif %}
+    <div class="pin-body">
+      <h3>{{ i.title }}</h3>
+      {% if i.source_host %}<p class="muted">{{ i.source_host }}</p>{% endif %}
+      {% if i.project_id %}<span class="pill status-planned">Project</span>{% endif %}
+    </div>
+  </a>
+  {% endfor %}
+</div>
+{% endif %}
+{% endblock %}

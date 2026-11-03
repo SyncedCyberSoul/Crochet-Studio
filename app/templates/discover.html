@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Discover · Crochet Studio{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Discover</h1>
+    <p class="muted">Fresh patterns and projects from crochet blogs and makers. Tap ♡ to save one to your Ideas.</p>
+  </div>
+</div>
+
+<form class="search discover-search" action="/discover" method="get">
+  <input type="search" name="q" value="{{ q }}" placeholder="Filter: amigurumi, blanket, granny…" aria-label="Filter Discover"
+         hx-get="/discover/items" hx-trigger="input changed delay:400ms, search" hx-target="#discover-items" hx-include="this">
+</form>
+<div class="discover-links">
+  <a class="btn btn-sm" href="{{ pinterest_url }}" target="_blank" rel="noopener">Search Pinterest{% if q %} for "{{ q }}"{% endif %} ↗</a>
+  <a class="btn btn-sm" href="/ideas/new">Paste a pin link</a>
+</div>
+
+<div id="discover-items" hx-get="/discover/items{% if q %}?q={{ q | urlencode }}{% endif %}" hx-trigger="load">
+  <div class="masonry">
+    {% for _ in range(8) %}<div class="pin skeleton" style="height: {{ [180, 240, 210, 280][loop.index0 % 4] }}px"></div>{% endfor %}
+  </div>
+  <p class="muted center">Gathering ideas from the internet…</p>
+</div>
+{% endblock %}

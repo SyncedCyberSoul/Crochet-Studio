@@ -1,0 +1,39 @@
+{% if not items %}
+<div class="empty">
+  {% if q %}<h2>Nothing about "{{ q }}" right now</h2><p>Try another word, or search Pinterest.</p>
+  {% else %}<h2>Couldn't load ideas</h2><p>Check the internet connection and try again in a bit.</p>{% endif %}
+</div>
+{% else %}
+<div class="masonry">
+  {% for item in items %}
+  <article class="pin">
+    <a href="{{ item.link }}" target="_blank" rel="noopener" class="pin-link">
+      <img src="{{ item.image }}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.closest('.pin').remove()">
+      <div class="pin-body">
+        <h3>{{ item.title }}</h3>
+        <p class="muted">{{ item.source }}</p>
+      </div>
+    </a>
+    <div class="pin-save">
+      {% if item.link in saved %}
+        <a class="btn btn-sm saved" href="/ideas">♥ Saved</a>
+      {% else %}
+      <form hx-post="/ideas/save" hx-swap="outerHTML" hx-disabled-elt="find button">
+        <input type="hidden" name="title" value="{{ item.title }}">
+        <input type="hidden" name="link" value="{{ item.link }}">
+        <input type="hidden" name="image_url" value="{{ item.image }}">
+        <input type="hidden" name="summary" value="{{ item.summary }}">
+        <button class="btn btn-sm" aria-label="Save {{ item.title }} to ideas">♡ Save</button>
+      </form>
+      {% endif %}
+    </div>
+  </article>
+  {% endfor %}
+</div>
+{% endif %}
+{% if errors %}
+<details class="feed-errors">
+  <summary class="muted">{{ errors | length }} of {{ feed_count }} sources couldn't be reached</summary>
+  <ul>{% for e in errors %}<li class="muted">{{ e }}</li>{% endfor %}</ul>
+</details>
+{% endif %}

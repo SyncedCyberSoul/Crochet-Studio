@@ -1,11 +1,22 @@
 from datetime import date
 
+from fastapi import Request
 from fastapi.templating import Jinja2Templates
 
 from .config import APP_DIR
 from .models import DASHBOARD_ORDER, STATUS_LABELS, ProjectStatus
+from .whatsnew import popup_for
 
-templates = Jinja2Templates(directory=APP_DIR / "templates")
+
+def _auth_context(request: Request) -> dict:
+    user = getattr(request.state, "user", None)
+    is_admin = getattr(request.state, "is_admin", False)
+    # No popups while the admin is looking around someone else's studio.
+    popup, releases = popup_for(user) if not is_admin else ("", [])
+    return {"current_user": user, "is_admin": is_admin, "popup": popup, "popup_releases": releases}
+
+
+templates = Jinja2Templates(directory=APP_DIR / "templates", context_processors=[_auth_context])
 
 
 def _nice_date(value: date | None) -> str:

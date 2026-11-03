@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}3D · Crochet Studio{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>3D</h1>
+    <p class="muted">Turn a photo of a finished piece into a model you can spin around, or open a 3D file.</p>
+  </div>
+  <a href="/3d/new" class="btn btn-primary">+ Make 3D</a>
+</div>
+{% if not models %}
+<div class="empty">
+  <img src="/static/yarn.svg" alt="" width="72" height="72">
+  <h2>Nothing in 3D yet</h2>
+  <p>Photos work best when the piece stands out from what's behind it.</p>
+  <a href="/3d/new" class="btn btn-primary btn-lg">+ Make your first 3D model</a>
+</div>
+{% else %}
+<div class="grid">
+  {% for m in models %}
+  <a class="card" href="/3d/{{ m.id }}">
+    {% if m.thumb %}<img class="card-img" src="/media/{{ m.thumb }}" alt="" loading="lazy">
+    {% else %}<div class="card-img placeholder status-planned"><span class="big-3d">3D</span></div>{% endif %}
+    <div class="card-body"><h3>{{ m.title }}</h3><p class="muted">{{ "From a photo" if m.kind == "photo" else m.kind | upper ~ " file" }}</p></div>
+  </a>
+  {% endfor %}
+</div>
+{% endif %}
+{% endblock %}

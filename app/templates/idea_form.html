@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% set editing = idea.id is not none %}
+{% block title %}{{ "Edit idea" if editing else "Save an idea" }} · Crochet Studio{% endblock %}
+{% block content %}
+<a href="{{ '/ideas/%d' % idea.id if editing else '/ideas' }}" class="back">← {{ "Back to idea" if editing else "Ideas" }}</a>
+<h1>{{ "Edit idea" if editing else "Save an idea" }}</h1>
+
+<form method="post" action="{{ '/ideas/%d' % idea.id if editing else '/ideas' }}" enctype="multipart/form-data" class="form">
+  <div class="field">
+    <label for="source_url" class="label">Link <small class="muted">(Pinterest pin, blog post, shop page…)</small></label>
+    <div class="input-row">
+      <input id="source_url" name="source_url" type="url" value="{{ idea.source_url }}" placeholder="https://pin.it/…"
+             hx-post="/ideas/preview" hx-trigger="change, paste delay:150ms" hx-target="#preview" hx-include="this"
+             hx-indicator="#preview-spin">
+      <button type="button" class="btn" hx-post="/ideas/preview" hx-include="#source_url" hx-target="#preview" hx-indicator="#preview-spin">Look up</button>
+    </div>
+    <span id="preview-spin" class="htmx-indicator muted">Looking it up…</span>
+  </div>
+  <div id="preview">
+    {% if idea.image %}<img class="idea-preview-img" src="/media/{{ idea.thumb or idea.image }}" alt="">{% endif %}
+  </div>
+
+  <label class="field">
+    <span>Title</span>
+    <input name="title" id="idea-title" value="{{ idea.title }}" placeholder="What is it?">
+  </label>
+
+  <label class="field">
+    <span>{{ "Replace the picture" if idea.image else "Or use your own photo" }}</span>
+    <input type="file" name="photo" accept="image/*">
+  </label>
+
+  <div class="field" x-data='tagInput({{ tag_names | tojson }}, {{ all_tags | tojson }})'>
+    <span class="label">Tags</span>
+    <div class="tag-box" @click="$refs.draft.focus()">
+      <template x-for="t in tags" :key="t">
+        <span class="chip active"><span x-text="'#' + t"></span>
+          <button type="button" class="chip-x" @click.stop="remove(t)" :aria-label="'Remove ' + t">×</button>
+        </span>
+      </template>
+      <input x-ref="draft" x-model="draft" @keydown="onKey($event)" placeholder="Type a tag, press Enter" aria-label="Add tag">
+    </div>
+    <input type="hidden" name="tags" :value="[...tags, draft].join(',')">
+    <div class="chips suggestions" x-show="filtered.length">
+      <template x-for="s in filtered" :key="s">
+        <button type="button" class="chip" @mousedown.prevent="add(s)" x-text="'#' + s"></button>
+      </template>
+    </div>
+  </div>
+
+  <label class="field">
+    <span>Notes</span>
+    <textarea name="notes" id="idea-notes" rows="4" placeholder="Colors to try, who it'd be for…">{{ idea.notes }}</textarea>
+  </label>
+
+  <div class="form-actions">
+    <button class="btn btn-primary btn-lg">{{ "Save changes" if editing else "Save idea" }}</button>
+    <a class="btn btn-lg" href="{{ '/ideas/%d' % idea.id if editing else '/ideas' }}">Cancel</a>
+  </div>
+</form>
+{% endblock %}

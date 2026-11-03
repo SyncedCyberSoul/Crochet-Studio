@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{% block title %}{{ pattern.title }} · Crochet Studio{% endblock %}
+{% block content %}
+<div x-data="{ terms: (() => { try { return localStorage.getItem('terms') || {{ pattern.terms | tojson }} } catch (e) { return {{ pattern.terms | tojson }} } })() }">
+  <a href="/patterns" class="back">← Patterns</a>
+  {% if pdf_error %}<p class="alert">That file wasn't a PDF (or was over 40 MB), so it wasn't attached.</p>{% endif %}
+
+  <div class="page-head">
+    <div>
+      <h1>{{ pattern.title }}</h1>
+      <p class="muted">
+        {% if pattern.designer %}by {{ pattern.designer }} · {% endif %}{{ steps | length }} steps
+        {% if pattern.difficulty %} · {{ pattern.difficulty }}{% endif %}
+        {% if pattern.source_url %} · <a href="{{ pattern.source_url }}" target="_blank" rel="noopener">source</a>{% endif %}
+      </p>
+    </div>
+    <div class="actions">
+      <a class="btn btn-primary" href="/projects/new?pattern={{ pattern.id }}&status=in_progress">{{ icon("play", 18) }} Start a project</a>
+      <a class="btn" href="/patterns/{{ pattern.id }}/edit">Edit</a>
+    </div>
+  </div>
+
+  {% if projects %}
+  <section class="panel">
+    <h2>Projects using this pattern</h2>
+    <div class="list">
+      {% for p in projects %}
+      <a class="list-row" href="/projects/{{ p.id }}/follow">
+        <div class="list-main"><h3>{{ p.name }}</h3><p class="muted">{{ p.status_label }}{% if p.recipient %} · for {{ p.recipient }}{% endif %}</p></div>
+        <span class="btn btn-sm btn-primary">Follow along →</span>
+      </a>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  {% if pattern.pdf_file %}
+  <section class="panel">
+    <div class="panel-head">
+      <h2>PDF</h2>
+      <a class="btn btn-sm" href="/media/{{ pattern.pdf_file }}" target="_blank" rel="noopener">Open full screen</a>
+    </div>
+    <iframe class="pdf-frame" src="/media/{{ pattern.pdf_file }}" title="Pattern PDF"></iframe>
+  </section>
+  {% endif %}
+
+  <section class="panel">
+    <div class="panel-head">
+      <h2>Steps</h2>
+      <div class="segmented small" role="group" aria-label="Crochet terms">
+        <label><input type="radio" value="us" x-model="terms" @change="localStorage.setItem('terms', terms)"><span>US</span></label>
+        <label><input type="radio" value="uk" x-model="terms" @change="localStorage.setItem('terms', terms)"><span>UK</span></label>
+      </div>
+    </div>
+    {% if not steps %}
+      <p class="muted">No steps yet. <a href="/patterns/{{ pattern.id }}/edit">Paste the pattern text</a> to split it into steps.</p>
+    {% else %}
+    <ol class="step-read">
+      {% for s in steps %}
+        {% if loop.first or s.section != steps[loop.index0 - 1].section %}
+          {% if s.section %}<li class="step-section">{{ s.section }}</li>{% endif %}
+        {% endif %}
+        <li>
+          {% if s.label %}<strong>{{ s.label }}</strong>{% endif %}
+          <span x-text='terms === "uk" ? {{ s.text_by_terms.uk | tojson }} : {{ s.text_by_terms.us | tojson }}'>{{ s.text }}</span>
+          {% if s.stitch_count %}<span class="count">{{ s.stitch_count }} sts</span>{% endif %}
+        </li>
+      {% endfor %}
+    </ol>
+    {% endif %}
+  </section>
+
+  {% if pattern.notes %}
+  <section class="panel"><h2>Notes</h2><div class="notes">{{ pattern.notes }}</div></section>
+  {% endif %}
+
+  <section class="danger-zone">
+    <form method="post" action="/patterns/{{ pattern.id }}/delete" onsubmit="return confirm('Delete this pattern? Projects using it stay, but lose their step checklist.')">
+      <button class="btn btn-ghost-danger">Delete pattern</button>
+    </form>
+  </section>
+</div>
+{% endblock %}
