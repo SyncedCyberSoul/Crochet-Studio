@@ -4,13 +4,13 @@ Jillian's home for crochet projects: what's on the hook, what's next, and photos
 
 ## Opening it
 
-On the laptop, in this folder:
+On the laptop, double-click **Start Crochet Studio.bat** in this folder.
 
-```
-python run.py
-```
+- The first time, it spends a minute or two setting itself up.
+- A black window opens and stays open. That window *is* the app, so leave it open while you use it and close it to stop.
+- Your browser opens to **http://localhost:8000**. Bookmark it. Any browser on the laptop works; nothing else needs installing.
 
-Then open **http://localhost:8000** in a browser. Leave that window open while you use it; close it to stop the app.
+If it says Python isn't installed, get it from python.org, and during install tick **"Add python.exe to PATH"**.
 
 > Opening it from the Mac, phone, or tablet comes in phase 5. For now it runs on the laptop only.
 
@@ -34,7 +34,9 @@ The locations can be changed in `config.toml`.
 
 ## For whoever maintains it
 
-- Requires Python 3.12+. Install with `python -m venv .venv`, then `.venv\Scripts\pip install -r requirements.txt`.
-- Use `python run.py --reload` to restart automatically while editing code.
+- Requires Python 3.12+. The start file creates `.venv` and installs `requirements.txt` on first run. To do it by hand, run `python -m venv .venv`, then `.venv\Scripts\pip install -r requirements.txt`, then `.venv\Scripts\python run.py`.
+- Keep the folder at a short path (e.g. `C:\CrochetStudio`): deeply nested folders break SQLAlchemy's DLLs on Windows.
+- If `requirements.txt` changes later, delete `.venv` and run the start file again.
+- Use `run.py --reload` to restart automatically while editing code.
 - Stack: FastAPI, SQLModel (SQLite), Jinja2, HTMX and Alpine (in `app/static/vendor`, no build step), and Pillow.
 - New model fields are added to existing tables automatically on startup (`app/db.py`). Renaming or removing a column still needs a manual migration.
