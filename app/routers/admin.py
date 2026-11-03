@@ -15,12 +15,12 @@ from ..auth import (
 )
 from ..backup import last_backup, run_backup
 from ..config import settings
-from ..db import get_session
+from ..db import WELCOME_KEY, get_session
 from ..deps import redirect
 from ..discover import DEFAULT_FEEDS, feed_list
 from ..models import AVATAR_COLORS, Idea, Model3D, Pattern, Project, Tool, User, Yarn
 from ..templating import templates
-from ..whatsnew import LATEST, WELCOME_PROFILE
+from ..whatsnew import welcome_user_id
 
 router = APIRouter(prefix="/admin")
 
@@ -103,7 +103,20 @@ def admin_home(request: Request, saved: str = "", error: str = "", session: Sess
         "users": users, "counts": counts, "colors": AVATAR_COLORS, "feeds_text": feeds,
         "saved": saved, "error": error, "default_feed_count": len(DEFAULT_FEEDS),
         "backup": last_backup(), "backup_dir": settings.backup_dir, "backup_time": settings.backup_time,
+        "welcome_id": welcome_user_id(),
     })
+
+
+@router.post("/welcome")
+async def set_welcome(request: Request, session: Session = Depends(get_session)):
+    form = await request.form()
+    raw = str(form.get("user_id", ""))
+    user = session.get(User, int(raw)) if raw.isdigit() else None
+    set_setting(session, WELCOME_KEY, str(user.id) if user else "")
+    if user and form.get("show_again"):
+        user.seen_version = 0  # shows on their next open
+    session.commit()
+    return redirect("/admin?saved=" + (f"Welcome+note+set+for+{quote_plus(user.name)}" if user else "Welcome+note+turned+off"))
 
 
 @router.post("/backup")
@@ -131,7 +144,7 @@ async def create_user(request: Request, session: Session = Depends(get_session))
     if len(password) < MIN_PASSWORD:
         return redirect(f"/admin?error=New+profiles+need+a+password+of+at+least+{MIN_PASSWORD}+characters")
     user = User(name=name, color=str(form.get("color") or AVATAR_COLORS[0]),
-                seen_version=0 if name == WELCOME_PROFILE else LATEST, password_hash=hash_password(password))
+                password_hash=hash_password(password))
     session.add(user)
     session.commit()
     return redirect("/admin?saved=Added+" + name)

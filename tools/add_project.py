@@ -1,7 +1,7 @@
 """Add a project to a profile from the command line (e.g. importing a finished piece with its photo).
 
-    .venv\\Scripts\\python tools\\add_project.py --profile Jillian --name "Little Green Alien" \\
-        --status done --recipient Ren --tags "amigurumi, gift" --photo C:\\path\\alien.webp --make-3d
+    .venv\\Scripts\\python tools\\add_project.py --profile "Name" --name "Little Green Alien" \\
+        --status done --recipient "Cousin" --tags "amigurumi, gift" --photo C:\\path\\alien.webp --make-3d
 
 Run it on the computer that hosts Crochet Studio, from the app folder. It writes straight to the database,
 so nobody has to sign in, and it doesn't count as the profile being opened (no welcome or What's new is used up).
@@ -24,7 +24,7 @@ from app.tags import parse_tags  # noqa: E402
 
 def main() -> int:
     p = argparse.ArgumentParser(description="Add a project to a Crochet Studio profile")
-    p.add_argument("--profile", required=True, help="profile name, e.g. Jillian")
+    p.add_argument("--profile", required=True, help="the profile's name, exactly as shown")
     p.add_argument("--name", required=True)
     p.add_argument("--status", default="planned", choices=[s.value for s in ProjectStatus])
     p.add_argument("--recipient", default="")

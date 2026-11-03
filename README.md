@@ -38,7 +38,17 @@ The small **Admin logon** link at the bottom right isn't a profile, just a passw
 
 **First time:** open **http://localhost:8000/admin** on the laptop itself and choose the admin password. For safety, it can't be set from another device or through the internet.
 
-> To look around without using up Jillian's one-time welcome note, use Admin → **Open** on her profile. No popups show while the admin is looking.
+> Admin → **Welcome note** picks which profile gets the one-time welcome. To look around without using it up, use Admin → **Open** on that profile: no popups show while the admin is looking.
+
+**Profile names stay private.** Nobody's name is in the code. To create profiles automatically on a fresh install, put them in a `config.local.toml` next to `config.toml` (git ignores it):
+
+```toml
+[profiles]
+names = ["Name One", "Name Two"]
+welcome = "Name One"
+```
+
+Otherwise the admin adds profiles on the admin page.
 
 ## Where your stuff lives
 

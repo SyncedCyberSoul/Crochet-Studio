@@ -64,6 +64,22 @@
 </section>
 
 <section class="panel">
+  <h2>Welcome note</h2>
+  <p class="muted">One profile can get the "Happy anniversary… Made with love" note. It shows once, right after they create their password.</p>
+  <form method="post" action="/admin/welcome" class="form">
+    <label class="field">
+      <span>Welcome note goes to</span>
+      <select name="user_id">
+        <option value="">Nobody</option>
+        {% for u in users %}<option value="{{ u.id }}" {% if u.id == welcome_id %}selected{% endif %}>{{ u.name }}{% if u.id == welcome_id and u.seen_version %} (already seen){% elif u.id == welcome_id %} (waiting){% endif %}</option>{% endfor %}
+      </select>
+    </label>
+    <label class="check"><input type="checkbox" name="show_again" value="1"> Show it again on their next open</label>
+    <div class="form-actions"><button class="btn">Save</button></div>
+  </form>
+</section>
+
+<section class="panel">
   <div class="panel-head">
     <h2>Backups</h2>
     <form method="post" action="/admin/backup"><button class="btn btn-primary">Back up now</button></form>

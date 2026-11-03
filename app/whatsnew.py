@@ -2,8 +2,21 @@
 
 from dataclasses import dataclass
 
-# Only this profile gets the one-time welcome note on first open.
-WELCOME_PROFILE = "Jillian"
+from sqlmodel import Session
+
+from .auth import get_setting
+from .db import WELCOME_KEY, engine
+
+
+def welcome_user_id() -> int | None:
+    """The one profile that gets the one-time welcome note on first open (set on the admin page)."""
+    with Session(engine) as session:
+        raw = get_setting(session, WELCOME_KEY)
+    return int(raw) if raw.isdigit() else None
+
+
+def gets_welcome(user) -> bool:
+    return user is not None and user.id == welcome_user_id()
 
 
 @dataclass(frozen=True)
@@ -53,6 +66,6 @@ def popup_for(user) -> tuple[str, list[Release]]:
         return "", []
     seen = user.seen_version or 0
     if seen == 0:
-        return ("welcome", []) if user.name == WELCOME_PROFILE else ("", [])
+        return ("welcome", []) if gets_welcome(user) else ("", [])
     unseen = [r for r in RELEASES if r.version > seen]
     return ("whatsnew", unseen) if unseen else ("", [])

@@ -74,23 +74,28 @@ def _seed_glossary() -> None:
         session.commit()
 
 
-DEFAULT_PROFILES = [("Jillian", "#c4694b"), ("Emma", "#7f9a7e")]
+WELCOME_KEY = "welcome_user_id"
 
 
 def _seed_profiles() -> None:
-    """First run: create the household's profiles and give them anything made before profiles existed."""
-    from .models import Idea, Model3D, Pattern, Project, Tool, User, Yarn
+    """First run: create the profiles named in config.local.toml (names stay out of the repo) and give the
+    first one anything made before profiles existed. Also picks who gets the welcome note, if configured."""
+    from .auth import get_setting, set_setting
+    from .models import AVATAR_COLORS, Idea, Model3D, Pattern, Project, Tool, User, Yarn
 
     with Session(engine) as session:
-        if session.exec(select(User)).first():
-            return
-        users = [User(name=name, color=color) for name, color in DEFAULT_PROFILES]
-        session.add_all(users)
-        session.flush()
-        owner = users[0].id
-        for model in (Project, Pattern, Idea, Model3D, Yarn, Tool):
-            for row in session.exec(select(model).where(model.user_id == None)).all():  # noqa: E711
-                row.user_id = owner
+        if not session.exec(select(User)).first() and settings.seed_profiles:
+            users = [User(name=name, color=AVATAR_COLORS[i * 2 % len(AVATAR_COLORS)])
+                     for i, name in enumerate(settings.seed_profiles)]
+            session.add_all(users)
+            session.flush()
+            for model in (Project, Pattern, Idea, Model3D, Yarn, Tool):
+                for row in session.exec(select(model).where(model.user_id == None)).all():  # noqa: E711
+                    row.user_id = users[0].id
+        if settings.welcome_profile and not get_setting(session, WELCOME_KEY):
+            user = session.exec(select(User).where(User.name == settings.welcome_profile)).first()
+            if user:
+                set_setting(session, WELCOME_KEY, str(user.id))
         session.commit()
 
 

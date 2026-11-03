@@ -13,7 +13,7 @@ from ..db import get_session
 from ..deps import current_user, redirect
 from ..models import AVATAR_COLORS, User
 from ..templating import templates
-from ..whatsnew import LATEST, WELCOME_PROFILE
+from ..whatsnew import LATEST, gets_welcome
 
 router = APIRouter()
 
@@ -58,8 +58,8 @@ async def enter_profile(request: Request, user_id: int, session: Session = Depen
             await asyncio.sleep(0.6)  # slow down guessing
             return _picker(request, session, error_for=user.id, error="That password didn't match.", status=401)
         clear_failures(lock_key)
-    if not user.seen_version and user.name != WELCOME_PROFILE:
-        user.seen_version = LATEST  # a first visit isn't "new features"; only Jillian gets the welcome
+    if not user.seen_version and not gets_welcome(user):
+        user.seen_version = LATEST  # a first visit isn't "new features"; only the welcome profile gets a note
         session.commit()
     target = str(form.get("next") or "/")
     if not target.startswith("/") or target.startswith("//"):
@@ -85,7 +85,7 @@ async def add_profile(request: Request, session: Session = Depends(get_session))
         return _picker(request, session, add_error=problem, status=400)
     color = str(form.get("color") or "")
     user = User(name=name, color=color if color in AVATAR_COLORS else AVATAR_COLORS[len(name) % len(AVATAR_COLORS)],
-                seen_version=0 if name == WELCOME_PROFILE else LATEST, password_hash=hash_password(password))
+                password_hash=hash_password(password))
     session.add(user)
     session.commit()
     response = redirect("/")

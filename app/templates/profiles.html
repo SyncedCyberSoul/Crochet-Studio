@@ -6,6 +6,9 @@
 <div class="profiles" x-data="{ picked: {{ (error_for or 'null') }}, adding: {{ 'true' if add_error else 'false' }} }">
   <h1>Who's crocheting?</h1>
   {% if error %}<p class="alert">{{ error }}</p>{% endif %}
+  {% if not users and not is_admin %}
+  <p class="muted">No profiles yet. Use <strong>Admin logon</strong> (bottom right) to add the first one.</p>
+  {% endif %}
 
   <div class="profile-grid">
     {% for u in users %}

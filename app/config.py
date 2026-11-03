@@ -1,4 +1,8 @@
-"""Settings loaded from config.toml (override the file location with CROCHET_CONFIG)."""
+"""Settings loaded from config.toml (override the file location with CROCHET_CONFIG).
+
+A config.local.toml next to it, if present, overrides it section by section. It is git-ignored, so
+anything personal (like profile names) goes there and never reaches the public repo.
+"""
 
 import os
 import tomllib
@@ -21,6 +25,8 @@ class Settings:
     backup_dir: Path
     backup_time: str  # "HH:MM", local time
     backup_keep: int  # how many database snapshots to keep
+    seed_profiles: tuple[str, ...]  # profiles to create on a brand-new database
+    welcome_profile: str  # who gets the one-time welcome note (admin can change it)
 
 
 def _resolve(base: Path, value: str) -> Path:
@@ -31,10 +37,13 @@ def _resolve(base: Path, value: str) -> Path:
 def load_settings() -> Settings:
     config_path = Path(os.environ.get("CROCHET_CONFIG", BASE_DIR / "config.toml")).resolve()
     raw = {}
-    if config_path.exists():
-        with config_path.open("rb") as f:
-            raw = tomllib.load(f)
+    for path in (config_path, config_path.with_name("config.local.toml")):
+        if path.exists():
+            with path.open("rb") as f:
+                for section, values in tomllib.load(f).items():
+                    raw[section] = {**raw.get(section, {}), **values} if isinstance(values, dict) else values
     base = config_path.parent
+    profiles = raw.get("profiles", {})
     server = raw.get("server", {})
     paths = raw.get("paths", {})
     photos = raw.get("photos", {})
@@ -57,6 +66,8 @@ def load_settings() -> Settings:
         backup_dir=backup_dir,
         backup_time=str(backup.get("time", "03:00")),
         backup_keep=int(backup.get("keep", 14)),
+        seed_profiles=tuple(str(n).strip() for n in profiles.get("names", []) if str(n).strip()),
+        welcome_profile=str(profiles.get("welcome", "")).strip(),
     )
 
 
