@@ -52,7 +52,15 @@
 
   <section class="panel steps-panel">
     <h2>Steps</h2>
-    <p class="muted">Paste the written pattern below and tap <strong>Split into steps</strong>. Each row or round becomes a step she can check off. Fix anything that split oddly before saving.</p>
+    <div class="field">
+      <span class="label">Import from a link <small class="muted">(free patterns on blogs work best)</small></span>
+      <div class="input-row">
+        <input type="url" x-ref="importUrl" placeholder="https://… the pattern's web page" aria-label="Pattern link to import"
+               @keydown.enter.prevent="importLink()">
+        <button type="button" class="btn" @click="importLink()" :disabled="busy"><span x-text="busy ? 'Getting it…' : 'Import'"></span></button>
+      </div>
+    </div>
+    <p class="muted">Or paste the written pattern below and tap <strong>Split into steps</strong>. Each row or round becomes a step she can check off. Fix anything that split oddly before saving.</p>
     <label class="field">
       <span class="sr-only">Pattern text</span>
       <textarea name="raw_text" x-ref="raw" rows="8" placeholder="Rnd 1: 6 sc in magic ring (6)&#10;Rnd 2: inc around (12)&#10;Rnds 3-5: sc around (12)">{{ pattern.raw_text }}</textarea>

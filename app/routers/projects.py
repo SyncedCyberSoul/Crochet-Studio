@@ -11,7 +11,7 @@ from .. import media
 from ..db import get_session
 from ..deps import current_user, owned, redirect
 from ..models import (
-    DASHBOARD_ORDER, Model3D, Pattern, Project, ProjectPhoto, ProjectStatus, ProjectTagLink, StepDone, Tag, User, Yarn,
+    DASHBOARD_ORDER, Idea, Model3D, Pattern, Project, ProjectPhoto, ProjectStatus, ProjectTagLink, StepDone, Tag, User, Yarn,
     utcnow,
 )
 from ..tags import parse_tags
@@ -162,9 +162,10 @@ async def create_project(request: Request, user: User = Depends(current_user), s
 
 
 @router.get("/projects/{project_id}")
-def project_detail(request: Request, project_id: int, rejected: int = 0,
+def project_detail(request: Request, project_id: int, rejected: int = 0, note: str = "",
                    user: User = Depends(current_user), session: Session = Depends(get_session)):
     project = owned(session, Project, project_id, user)
+    idea = session.exec(select(Idea).where(Idea.project_id == project.id, Idea.user_id == user.id)).first()
     pattern = session.get(Pattern, project.pattern_id) if project.pattern_id else None
     done = 0
     if pattern:
@@ -174,6 +175,7 @@ def project_detail(request: Request, project_id: int, rejected: int = 0,
     return templates.TemplateResponse(request, "project_detail.html", {
         "project": project, "rejected": rejected, "pattern": pattern, "steps_done": done, "models": models,
         "yarn_lines": yarn_lines(session, project), "my_yarn": my_yarn,
+        "note": note[:400], "idea_url": idea.source_url if idea else "",
     })
 
 

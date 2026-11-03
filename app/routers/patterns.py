@@ -1,5 +1,7 @@
+import asyncio
 import json
 from typing import Optional
+from urllib.parse import quote_plus
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
@@ -11,6 +13,7 @@ from .. import media
 from ..db import get_session
 from ..deps import current_user, owned, redirect
 from ..models import Pattern, PatternStep, Project, StepDone, User, utcnow
+from ..patternimport import FetchError, import_from_url
 from ..patternparse import parse_dicts
 from ..terms import both
 from ..templating import templates
@@ -86,6 +89,65 @@ def _form(request: Request, pattern: Pattern, error: str = ""):
         "pattern": pattern, "steps": _steps_json(pattern) if pattern.id else [],
         "difficulties": DIFFICULTIES, "error": error,
     })
+
+
+def save_imported(session: Session, user: User, imp) -> Pattern:
+    """Store a pattern pulled off a web page (see patternimport) for this profile."""
+    pattern = Pattern(user_id=user.id, title=imp.title, designer=imp.designer, source_url=imp.source_url,
+                      raw_text=imp.text, notes=imp.materials and f"Materials (from the page):\n{imp.materials}")
+    session.add(pattern)
+    session.flush()
+    pattern.steps = [
+        PatternStep(pattern_id=pattern.id, position=i, section=s.section[:80], label=s.label[:40], text=s.text,
+                    stitch_count=s.stitch_count)
+        for i, s in enumerate(imp.steps)
+    ]
+    return pattern
+
+
+async def import_for_project(session: Session, user: User, project: Project, url: str) -> str:
+    """Fetch the pattern at `url`, link it to the project. Returns a message for the project page."""
+    try:
+        imp = await asyncio.to_thread(import_from_url, url, project.name)
+    except FetchError as exc:
+        return f"Couldn't open that page: {exc}"
+    if not imp:
+        return ("That page doesn't have written rows to import (it may be a paid pattern, a PDF download, a video "
+                "or a photo post). You can paste the pattern text under Patterns instead.")
+    pattern = save_imported(session, user, imp)
+    project.pattern_id = pattern.id
+    if imp.hook and not project.hook_size:
+        project.hook_size = imp.hook
+    return f"Imported {len(pattern.steps)} steps from {imp.designer}. Check them over on the pattern page."
+
+
+@router.post("/patterns/import")
+async def import_preview(request: Request, user: User = Depends(current_user)):
+    """For the Add pattern form: fill in the title and text from a link."""
+    body = await request.json()
+    url = str(body.get("url", "")).strip()
+    if not url.startswith(("http://", "https://")):
+        return JSONResponse({"error": "Paste a link that starts with http:// or https://"}, status_code=400)
+    try:
+        imp = await asyncio.to_thread(import_from_url, url)
+    except FetchError as exc:
+        return JSONResponse({"error": f"Couldn't open that page: {exc}"}, status_code=400)
+    if not imp:
+        return JSONResponse({"error": "No written rows found on that page (paid patterns, PDFs and videos can't be imported). "
+                                      "You can still paste the text below."}, status_code=422)
+    return {"title": imp.title, "designer": imp.designer, "source_url": imp.source_url, "text": imp.text,
+            "notes": imp.materials and f"Materials (from the page):\n{imp.materials}"}
+
+
+@router.post("/projects/{project_id}/import-pattern")
+async def project_import(request: Request, project_id: int, user: User = Depends(current_user),
+                         session: Session = Depends(get_session)):
+    project = owned(session, Project, project_id, user)
+    form = await request.form()
+    note = await import_for_project(session, user, project, str(form.get("url", "")).strip())
+    project.updated_at = utcnow()
+    session.commit()
+    return redirect(f"/projects/{project.id}?note={quote_plus(note)}")
 
 
 # ---------- list / create ----------

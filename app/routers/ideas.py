@@ -1,4 +1,5 @@
 from datetime import date
+from urllib.parse import quote_plus
 
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy import or_
@@ -13,6 +14,7 @@ from ..models import Idea, IdeaTagLink, Project, ProjectPhoto, ProjectStatus, Ta
 from ..tags import parse_tags
 from ..templating import templates
 from ..webfetch import FetchError, fetch_image, link_preview
+from .patterns import import_for_project
 
 router = APIRouter(prefix="/ideas")
 
@@ -161,8 +163,9 @@ async def update_idea(request: Request, idea_id: int, user: User = Depends(curre
 
 
 @router.post("/{idea_id}/promote")
-def promote(idea_id: int, user: User = Depends(current_user), session: Session = Depends(get_session)):
-    """Turn an idea into a planned project, carrying over its picture, tags and link."""
+async def promote(idea_id: int, user: User = Depends(current_user), session: Session = Depends(get_session)):
+    """Turn an idea into a planned project, carrying over its picture, tags and link, and the pattern itself
+    when the linked page has it written out."""
     idea = owned(session, Idea, idea_id, user)
     existing = session.get(Project, idea.project_id) if idea.project_id else None
     if existing and existing.user_id == user.id:
@@ -180,9 +183,12 @@ def promote(idea_id: int, user: User = Depends(current_user), session: Session =
         except (OSError, media.NotAnImage):
             pass
     idea.project_id = project.id
+    note = ""
+    if idea.source_url:
+        note = await import_for_project(session, user, project, idea.source_url)
     project.updated_at = utcnow()
     session.commit()
-    return redirect(f"/projects/{project.id}")
+    return redirect(f"/projects/{project.id}" + (f"?note={quote_plus(note)}" if note else ""))
 
 
 @router.post("/{idea_id}/delete")

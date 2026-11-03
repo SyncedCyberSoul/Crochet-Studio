@@ -7,6 +7,8 @@
 
   <a href="/" class="back">← All projects</a>
 
+  {% if note %}<p class="alert {{ 'ok' if note.startswith('Imported') else '' }}">{{ note }}</p>{% endif %}
+
   {% if rejected %}
   <p class="alert">{{ rejected }} file{{ 's' if rejected > 1 }} couldn't be read as a photo and {{ 'were' if rejected > 1 else 'was' }} skipped.</p>
   {% endif %}
@@ -46,6 +48,16 @@
     <p class="progress-text">{{ steps_done }} of {{ total }} steps done · Row counter: {{ project.row_counter or 0 }}</p>
     {% endif %}
     <a class="btn btn-primary btn-lg" href="/projects/{{ project.id }}/follow">{{ "Continue where you left off" if steps_done else "Start following" }} →</a>
+  </section>
+  {% else %}
+  <section class="panel">
+    <h2>Pattern</h2>
+    <p class="muted">Link a pattern to follow it row by row, with counters. Paste the pattern's web page and it's pulled in for you.</p>
+    <form method="post" action="/projects/{{ project.id }}/import-pattern" class="input-row import-row" x-data="{ busy: false }" @submit="busy = true">
+      <input type="url" name="url" value="{{ idea_url }}" placeholder="https://… link to the pattern" required aria-label="Pattern link">
+      <button class="btn btn-primary" :disabled="busy"><span x-text="busy ? 'Getting it…' : 'Get pattern'"></span></button>
+    </form>
+    <p class="muted small-print">Or <a href="/patterns/new">paste the pattern text</a>, or pick one you've saved under <a href="/projects/{{ project.id }}/edit">Edit</a>.</p>
   </section>
   {% endif %}
 

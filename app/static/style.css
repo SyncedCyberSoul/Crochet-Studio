@@ -686,3 +686,24 @@ code { background: var(--surface-2); padding: 1px 6px; border-radius: 6px; font-
 .count-check .link-btn { color: inherit; }
 .frog-btn { display: block; margin: 12px auto 0; }
 .gl-pop .btn + .btn { margin-top: 8px; }
+.import-row { margin: 10px 0 6px; }
+.import-row input { min-height: var(--tap); padding: 0 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); color: var(--ink); font: inherit; }
+.small-print { font-size: .88rem; }
+/* Laptop dashboard: statuses side by side as columns */
+@media (min-width: 1000px) {
+  .page:has(.board) { max-width: 1400px; }
+  .board {
+    display: grid; grid-auto-flow: column; grid-auto-columns: minmax(230px, 1fr); gap: 16px;
+    align-items: start; overflow-x: auto; padding-bottom: 8px; margin-top: 14px;
+  }
+  .board .group { margin-top: 0; padding: 10px 12px 12px; border-radius: var(--radius); background: var(--surface-2); border-top: 4px solid var(--s); }
+  .board .group > summary { font-size: 1.1rem; min-height: 40px; }
+  .board .group > summary::after { display: none; }
+  .board .group:not([open]) { opacity: .8; }
+  .board .grid { grid-template-columns: 1fr; gap: 10px; }
+  .board .card { flex-direction: row; align-items: center; }
+  .board .card-img { width: 76px; height: 76px; flex: none; border-radius: 12px; margin: 8px 0 8px 8px; }
+  .board .card .placeholder img { width: 46%; }
+  .board .card-body { padding: 8px 12px; min-width: 0; }
+  .board .card-body h3 { font-size: .98rem; }
+}

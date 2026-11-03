@@ -24,12 +24,14 @@
     <p>Try another word{% if tag %}, or <a href="/{% if q %}?q={{ q | urlencode }}{% endif %}">clear the #{{ tag }} filter</a>{% endif %}.</p>
   </div>
 {% else %}
+  {# Phones: groups stacked. Laptops: a board, one column per status, side by side. #}
+  <div class="board">
   {% for status in DASHBOARD_ORDER %}
     {% set items = groups[status] %}
     {% if items %}
-    <details class="group" {% if status.value != 'frogged' %}open{% endif %}>
+    <details class="group status-{{ status.value }}" {% if status.value != 'frogged' %}open{% endif %}>
       <summary>
-        <span class="dot status-{{ status.value }}"></span>
+        <span class="dot"></span>
         {{ STATUS_LABELS[status] }} <span class="count">{{ items | length }}</span>
       </summary>
       <div class="grid">
@@ -38,4 +40,5 @@
     </details>
     {% endif %}
   {% endfor %}
+  </div>
 {% endif %}

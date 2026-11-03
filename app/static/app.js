@@ -78,6 +78,32 @@ document.addEventListener('alpine:init', () => {
       }
       this.busy = false;
     },
+    async importLink() {
+      const url = this.$refs.importUrl.value.trim();
+      if (!url) { this.message = 'Paste the link to the pattern first.'; return; }
+      this.busy = true;
+      this.message = '';
+      try {
+        const r = await fetch('/patterns/import', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url }),
+        });
+        const data = await r.json().catch(() => ({}));
+        if (!r.ok) { this.message = data.error || "Couldn't import that page."; return; }
+        const set = (name, value) => { const el = this.$root.elements[name]; if (el && value && !el.value) el.value = value; };
+        set('title', data.title);
+        set('designer', data.designer);
+        set('source_url', data.source_url);
+        set('notes', data.notes);
+        this.$refs.raw.value = data.text;
+      } catch (e) {
+        this.message = "Couldn't reach the page. Check the connection and try again.";
+        return;
+      } finally {
+        this.busy = false;
+      }
+      await this.split();
+      if (this.steps.length) this.message = `Imported ${this.steps.length} steps. Check them over, then save.`;
+    },
     add(i) {
       this.steps.splice(i + 1, 0, withKey({ section: this.steps[i]?.section || '', label: '', text: '' }));
       this.saveDraft();
